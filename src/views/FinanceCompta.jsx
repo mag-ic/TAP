@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { mockTransactions } from '../lib/mockData';
 import { Calculator, BarChart2, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 
 export default function FinanceCompta() {
@@ -20,13 +21,7 @@ export default function FinanceCompta() {
       setUsingMockData(false);
     } catch (err) {
       setUsingMockData(true);
-      setTransactions([
-        { id: '1', type: 'vente', amount: 1250.00, date: '2026-06-18', status: 'confirmé' },
-        { id: '2', type: 'vente', amount: 850.00, date: '2026-06-19', status: 'confirmé' },
-        { id: '3', type: 'achat', amount: 600.00, date: '2026-06-10', status: 'confirmé' },
-        { id: '4', type: 'charge', amount: 150.00, date: '2026-06-13', status: 'confirmé' },
-        { id: '5', type: 'revenu', amount: 2500.00, date: '2026-06-19', status: 'confirmé' }
-      ]);
+      setTransactions(mockTransactions);
     } finally {
       setLoading(false);
     }
@@ -50,9 +45,9 @@ export default function FinanceCompta() {
 
   // Custom CSS Chart values (scale max out of total revenue)
   const maxVal = Math.max(totalRevenue, totalExpense, 1000);
-  const revenueHeight = totalRevenue > 0 ? (totalRevenue / maxVal) * 100 : 0;
-  const expenseHeight = totalExpense > 0 ? (totalExpense / maxVal) * 100 : 0;
-  const profitHeight = netProfit > 0 ? (netProfit / maxVal) * 100 : 0;
+  const revenueHeight = totalRevenue > 0 ? (totalRevenue / maxVal) * 200 : 0;
+  const expenseHeight = totalExpense > 0 ? (totalExpense / maxVal) * 200 : 0;
+  const profitHeight = netProfit > 0 ? (netProfit / maxVal) * 200 : 0;
 
   return (
     <div>
@@ -72,7 +67,7 @@ export default function FinanceCompta() {
             <TrendingUp size={24} />
           </div>
           <div className="kpi-info">
-            <span className="kpi-label">Produits (Revenus)</span>
+            <span className="kpi-label">Produits (Revenus Encaissés)</span>
             <span className="kpi-value">{totalRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
           </div>
         </div>
@@ -82,7 +77,7 @@ export default function FinanceCompta() {
             <TrendingDown size={24} />
           </div>
           <div className="kpi-info">
-            <span className="kpi-label">Charges (Dépenses)</span>
+            <span className="kpi-label">Charges (Dépenses Règlées)</span>
             <span className="kpi-value">{totalExpense.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
           </div>
         </div>
@@ -107,8 +102,8 @@ export default function FinanceCompta() {
           <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: '240px', paddingBottom: '20px', borderBottom: '1px solid var(--border-color)', margin: '20px 0' }}>
             
             {/* Revenue bar */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '60px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: 'var(--success)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '70px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', color: 'var(--success)' }}>
                 {totalRevenue.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
               </div>
               <div style={{ width: '100%', height: `${revenueHeight}px`, background: 'linear-gradient(to top, rgba(16, 185, 129, 0.2), var(--success))', borderRadius: '6px 6px 0 0', minHeight: '10px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }} />
@@ -116,8 +111,8 @@ export default function FinanceCompta() {
             </div>
 
             {/* Expense bar */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '60px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: 'var(--danger)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '70px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', color: 'var(--danger)' }}>
                 {totalExpense.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
               </div>
               <div style={{ width: '100%', height: `${expenseHeight}px`, background: 'linear-gradient(to top, rgba(239, 68, 68, 0.2), var(--danger))', borderRadius: '6px 6px 0 0', minHeight: '10px', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }} />
@@ -125,8 +120,8 @@ export default function FinanceCompta() {
             </div>
 
             {/* Net profit bar */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '60px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: 'var(--info)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '70px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '8px', color: 'var(--info)' }}>
                 {netProfit.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
               </div>
               <div style={{ width: '100%', height: `${Math.max(profitHeight, 0)}px`, background: 'linear-gradient(to top, rgba(6, 182, 212, 0.2), var(--info))', borderRadius: '6px 6px 0 0', minHeight: '10px', boxShadow: '0 4px 12px rgba(6, 182, 212, 0.2)' }} />

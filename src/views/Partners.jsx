@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { mockPartners } from '../lib/mockData';
 import { Plus, Search, UserCheck, RefreshCw } from 'lucide-react';
 
 export default function Partners() {
@@ -16,7 +17,9 @@ export default function Partners() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [companyName, setCompanyName] = useState('');
+  const [city, setCity] = useState('');
+  const [ice, setIce] = useState('');
+  const [ifId, setIfId] = useState('');
 
   const fetchPartners = async () => {
     try {
@@ -32,12 +35,7 @@ export default function Partners() {
       setUsingMockData(false);
     } catch (err) {
       setUsingMockData(true);
-      setPartners([
-        { id: '1', name: 'Jean Dupont', type: 'client', email: 'jean.dupont@email.com', phone: '+33 6 1234 5678', address: 'Paris, France', company_name: 'Dupont Bâtiment' },
-        { id: '2', name: 'Marie Leroux', type: 'client', email: 'marie.leroux@email.com', phone: '+33 6 8765 4321', address: 'Lyon, France', company_name: 'Leroux SARL' },
-        { id: '3', name: 'Industries Métal-Pro', type: 'fournisseur', email: 'sales@metalpro.com', phone: '+33 1 4567 8900', address: 'Lille, France', company_name: 'MetalPro S.A.' },
-        { id: '4', name: 'ElectroComposants', type: 'fournisseur', email: 'contact@electrocomp.com', phone: '+33 2 9876 5432', address: 'Nantes, France', company_name: 'ElectroComposants Ltd' }
-      ]);
+      setPartners(mockPartners);
     } finally {
       setLoading(false);
     }
@@ -52,20 +50,19 @@ export default function Partners() {
     if (!name || !type) return;
 
     const newPartner = {
+      id: 'ent-' + Math.floor(Math.random() * 100000000000),
       name,
       type,
       email: email || null,
       phone: phone || null,
       address: address || null,
-      company_name: companyName || null
+      city: city || null,
+      ice: ice || null,
+      if_id: ifId || null
     };
 
     if (usingMockData) {
-      const mockNewPartner = {
-        ...newPartner,
-        id: Math.random().toString()
-      };
-      setPartners([...partners, mockNewPartner]);
+      setPartners([...partners, newPartner]);
     } else {
       const { error } = await supabase.from('partners').insert([newPartner]);
       if (error) {
@@ -80,13 +77,16 @@ export default function Partners() {
     setEmail('');
     setPhone('');
     setAddress('');
-    setCompanyName('');
+    setCity('');
+    setIce('');
+    setIfId('');
     setShowModal(false);
   };
 
   const filteredPartners = partners.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (p.company_name && p.company_name.toLowerCase().includes(searchTerm.toLowerCase()));
+                          (p.city && p.city.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (p.ice && p.ice.includes(searchTerm));
     const matchesType = filterType === 'all' || p.type === filterType;
     return matchesSearch && matchesType;
   });
@@ -95,7 +95,7 @@ export default function Partners() {
     <div>
       <div className="section-header">
         <h2 className="top-bar-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <UserCheck size={24} style={{ color: 'var(--primary)' }} /> Partenaires
+          <UserCheck size={24} style={{ color: 'var(--primary)' }} /> Partenaires & Annuaire
         </h2>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button className="btn btn-secondary" onClick={fetchPartners}>
@@ -136,7 +136,7 @@ export default function Partners() {
             <Search size={18} className="search-icon" />
             <input
               type="text"
-              placeholder="Rechercher par nom, entreprise..."
+              placeholder="Rechercher par nom, ville, ICE..."
               className="form-input search-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -155,7 +155,8 @@ export default function Partners() {
               <thead>
                 <tr>
                   <th>Nom complet</th>
-                  <th>Entreprise</th>
+                  <th>Ville</th>
+                  <th>ICE (Identifiant Fiscal)</th>
                   <th>Type</th>
                   <th>Email</th>
                   <th>Téléphone</th>
@@ -166,7 +167,11 @@ export default function Partners() {
                 {filteredPartners.map((partner) => (
                   <tr key={partner.id}>
                     <td style={{ fontWeight: '600' }}>{partner.name}</td>
-                    <td style={{ fontWeight: '500' }}>{partner.company_name || '-'}</td>
+                    <td style={{ fontWeight: '500' }}>{partner.city || '-'}</td>
+                    <td>
+                      <div style={{ fontSize: '13px', fontFamily: 'monospace' }}>ICE: {partner.ice || '-'}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>IF: {partner.if_id || '-'}</div>
+                    </td>
                     <td>
                       <span className={`badge ${partner.type}`}>
                         {partner.type === 'client' ? 'Client' : 'Fournisseur'}
@@ -177,13 +182,6 @@ export default function Partners() {
                     <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{partner.address || '-'}</td>
                   </tr>
                 ))}
-                {filteredPartners.length === 0 && (
-                  <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
-                      Aucun partenaire trouvé.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -198,12 +196,12 @@ export default function Partners() {
             <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Nouveau Partenaire</h3>
             <form onSubmit={handleAddPartner}>
               <div className="form-group">
-                <label className="form-label">Nom complet</label>
+                <label className="form-label">Nom complet / Raison Sociale</label>
                 <input
                   type="text"
                   className="form-input"
                   required
-                  placeholder="ex: Jean Dupont"
+                  placeholder="ex: ESPACE STEEL"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -211,13 +209,13 @@ export default function Partners() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Entreprise (Optionnel)</label>
+                  <label className="form-label">Ville</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="ex: Dupont SARL"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="ex: CASABLANCA"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
                   />
                 </div>
                 <div className="form-group">
@@ -235,11 +233,34 @@ export default function Partners() {
 
               <div className="form-row">
                 <div className="form-group">
+                  <label className="form-label">ICE (15 chiffres)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="ex: 001541789000023"
+                    value={ice}
+                    onChange={(e) => setIce(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Identifiant Fiscal (IF)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="ex: 2265372"
+                    value={ifId}
+                    onChange={(e) => setIfId(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
                   <label className="form-label">Email</label>
                   <input
                     type="email"
                     className="form-input"
-                    placeholder="ex: contact@entreprise.com"
+                    placeholder="ex: info@entreprise.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -249,7 +270,7 @@ export default function Partners() {
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="ex: +33 6..."
+                    placeholder="ex: 06 63..."
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />
@@ -261,7 +282,7 @@ export default function Partners() {
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="ex: 12 Rue de la Paix, Paris"
+                  placeholder="ex: Sidi Maârouf, Casablanca"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                 />

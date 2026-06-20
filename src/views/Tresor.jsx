@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Plus, Search, Wallet, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
+import { mockTransactions, mockPartners, mockCheques } from '../lib/mockData';
+import { Plus, Search, Wallet, TrendingUp, TrendingDown, RefreshCw, FileText } from 'lucide-react';
 
 export default function Tresor() {
+  const [activeSubTab, setActiveSubTab] = useState('transactions'); // 'transactions' or 'cheques'
   const [transactions, setTransactions] = useState([]);
+  const [cheques, setCheques] = useState([]);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [usingMockData, setUsingMockData] = useState(false);
 
   // Form states
@@ -19,49 +23,41 @@ export default function Tresor() {
   const [paymentMethod, setPaymentMethod] = useState('Virement');
   const [status, setStatus] = useState('confirmé');
 
-  const fetchTransactions = async () => {
+  const fetchTreasuryData = async () => {
     try {
       setLoading(true);
       const { data: txData, error: txError } = await supabase
         .from('transactions')
-        .select('*, partners(name, type)')
+        .select('*')
         .order('date', { ascending: false });
 
       const { data: partnerData, error: partnerError } = await supabase
         .from('partners')
         .select('id, name, type');
 
-      if (txError || partnerError) throw new Error('DB tables missing');
+      const { data: chequeData, error: chequeError } = await supabase
+        .from('cheques')
+        .select('*')
+        .order('due_date', { ascending: false });
+
+      if (txError || partnerError || chequeError) throw new Error('DB tables missing');
 
       setTransactions(txData || []);
       setPartners(partnerData || []);
+      setCheques(chequeData || []);
       setUsingMockData(false);
     } catch (err) {
       setUsingMockData(true);
-      // Mock partners
-      const mockPartners = [
-        { id: 'p1', name: 'Jean Dupont', type: 'client' },
-        { id: 'p2', name: 'Marie Leroux', type: 'client' },
-        { id: 'p3', name: 'Industries Métal-Pro', type: 'fournisseur' },
-        { id: 'p4', name: 'ElectroComposants', type: 'fournisseur' }
-      ];
+      setTransactions(mockTransactions);
       setPartners(mockPartners);
-
-      // Mock transactions
-      setTransactions([
-        { id: '1', type: 'vente', amount: 1250.00, description: 'Facture F-2026-001 - Travaux électricité', date: '2026-06-18', partner_id: 'p1', partners: mockPartners[0], payment_method: 'Virement', status: 'confirmé' },
-        { id: '2', type: 'vente', amount: 850.00, description: 'Facture F-2026-002 - Dépannage plomberie', date: '2026-06-19', partner_id: 'p2', partners: mockPartners[1], payment_method: 'Carte', status: 'confirmé' },
-        { id: '3', type: 'achat', amount: 600.00, description: 'Achat de bobines de câble cuivre', date: '2026-06-10', partner_id: 'p3', partners: mockPartners[2], payment_method: 'Virement', status: 'confirmé' },
-        { id: '4', type: 'charge', amount: 150.00, description: 'Abonnement Télécom & Internet', date: '2026-06-13', partner_id: '', partners: null, payment_method: 'Espèces', status: 'confirmé' },
-        { id: '5', type: 'revenu', amount: 2500.00, description: 'Apport en capital / Remboursement TVA', date: '2026-06-19', partner_id: '', partners: null, payment_method: 'Virement', status: 'confirmé' }
-      ]);
+      setCheques(mockCheques);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTransactions();
+    fetchTreasuryData();
   }, []);
 
   const handleAddTransaction = async (e) => {
@@ -69,29 +65,25 @@ export default function Tresor() {
     if (!description || !amount) return;
 
     const newTx = {
+      id: Math.random().toString(),
       description,
       amount: parseFloat(amount),
       type,
       partner_id: partnerId || null,
+      partner_name: partners.find(p => p.id === partnerId)?.name || '',
       date: new Date().toISOString().split('T')[0],
       payment_method: paymentMethod,
       status
     };
 
     if (usingMockData) {
-      const selectedPartner = partners.find(p => p.id === partnerId);
-      const mockNewTx = {
-        ...newTx,
-        id: Math.random().toString(),
-        partners: selectedPartner || null
-      };
-      setTransactions([mockNewTx, ...transactions]);
+      setTransactions([newTx, ...transactions]);
     } else {
       const { error } = await supabase.from('transactions').insert([newTx]);
       if (error) {
         alert("Erreur lors de l'insertion dans Supabase : " + error.message);
       } else {
-        fetchTransactions();
+        fetchTreasuryData();
       }
     }
 
@@ -116,9 +108,19 @@ export default function Tresor() {
   // Filter list
   const filteredTransactions = transactions.filter(t => {
     const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (t.partners && t.partners.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                          (t.partner_name && t.partner_name.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = filterType === 'all' || t.type === filterType;
     return matchesSearch && matchesType;
+  });
+
+  const filteredCheques = cheques.filter(c => {
+    const matchesSearch = (c.partner_name && c.partner_name.toLowerCase().includes(searchTerm.toLowerCase())) || 
+                          (c.bank && c.bank.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (c.number && c.number.includes(searchTerm)) ||
+                          (c.reference && c.reference.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = filterStatus === 'all' || c.status === filterStatus;
+    const matchesType = filterType === 'all' || c.type === filterType;
+    return matchesSearch && matchesStatus && matchesType;
   });
 
   return (
@@ -128,7 +130,7 @@ export default function Tresor() {
           <Wallet size={24} style={{ color: 'var(--primary)' }} /> Trésorerie
         </h2>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="btn btn-secondary" onClick={fetchTransactions}>
+          <button className="btn btn-secondary" onClick={fetchTreasuryData}>
             <RefreshCw size={16} /> Actualiser
           </button>
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>
@@ -144,7 +146,7 @@ export default function Tresor() {
             <Wallet size={24} />
           </div>
           <div className="kpi-info">
-            <span className="kpi-label">Solde Actuel</span>
+            <span className="kpi-label">Solde Trésorerie</span>
             <span className="kpi-value">{currentSolde.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
           </div>
         </div>
@@ -154,7 +156,7 @@ export default function Tresor() {
             <TrendingUp size={24} />
           </div>
           <div className="kpi-info">
-            <span className="kpi-label">Total Entrées</span>
+            <span className="kpi-label">Total Recettes</span>
             <span className="kpi-value">+{totalInflow.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
           </div>
         </div>
@@ -164,10 +166,26 @@ export default function Tresor() {
             <TrendingDown size={24} />
           </div>
           <div className="kpi-info">
-            <span className="kpi-label">Total Sorties</span>
+            <span className="kpi-label">Total Décaissements</span>
             <span className="kpi-value">-{totalOutflow.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
           </div>
         </div>
+      </div>
+
+      {/* Sub Tabs */}
+      <div className="tab-switcher" style={{ marginBottom: '24px' }}>
+        <button 
+          className={`tab-btn ${activeSubTab === 'transactions' ? 'active' : ''}`}
+          onClick={() => { setActiveSubTab('transactions'); setFilterStatus('all'); }}
+        >
+          Mouvements Financiers ({transactions.length})
+        </button>
+        <button 
+          className={`tab-btn ${activeSubTab === 'cheques' ? 'active' : ''}`}
+          onClick={() => { setActiveSubTab('cheques'); setFilterStatus('all'); }}
+        >
+          Gestion des Chèques ({cheques.length})
+        </button>
       </div>
 
       {/* Search and Filters */}
@@ -177,32 +195,55 @@ export default function Tresor() {
             <Search size={18} className="search-icon" />
             <input
               type="text"
-              placeholder="Rechercher une transaction..."
+              placeholder={activeSubTab === 'transactions' ? "Rechercher une transaction..." : "Rechercher par banque, n° chèque, client..."}
               className="form-input search-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          
           <select 
             className="form-input" 
             style={{ width: '180px' }}
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
-            <option value="all">Tous les types</option>
-            <option value="vente">Vente</option>
-            <option value="achat">Achat</option>
-            <option value="charge">Charge</option>
-            <option value="revenu">Revenu</option>
+            <option value="all">Tous les flux</option>
+            {activeSubTab === 'transactions' ? (
+              <>
+                <option value="vente">Ventes</option>
+                <option value="achat">Achats</option>
+                <option value="charge">Charges</option>
+                <option value="revenu">Revenus</option>
+              </>
+            ) : (
+              <>
+                <option value="IN">Reçus (IN)</option>
+                <option value="OUT">Émis (OUT)</option>
+              </>
+            )}
           </select>
+
+          {activeSubTab === 'cheques' && (
+            <select 
+              className="form-input" 
+              style={{ width: '180px' }}
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="all">Tous les statuts</option>
+              <option value="recouvré">Encaissé</option>
+              <option value="impayé">Impayé</option>
+            </select>
+          )}
         </div>
       </div>
 
-      {/* Transactions List */}
+      {/* List */}
       <div className="glass-card">
         {loading ? (
           <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>Chargement...</div>
-        ) : (
+        ) : activeSubTab === 'transactions' ? (
           <div className="table-container">
             <table className="custom-table">
               <thead>
@@ -210,7 +251,7 @@ export default function Tresor() {
                   <th>Date</th>
                   <th>Description</th>
                   <th>Partenaire</th>
-                  <th>Mode Paiement</th>
+                  <th>Méthode</th>
                   <th>Type</th>
                   <th>Montant</th>
                   <th>Statut</th>
@@ -220,9 +261,9 @@ export default function Tresor() {
                 {filteredTransactions.map((tx) => (
                   <tr key={tx.id}>
                     <td>{new Date(tx.date).toLocaleDateString('fr-FR')}</td>
-                    <td>{tx.description}</td>
-                    <td>{tx.partners ? tx.partners.name : '-'}</td>
-                    <td>{tx.payment_method}</td>
+                    <td style={{ fontWeight: '500' }}>{tx.description}</td>
+                    <td>{tx.partner_name || '-'}</td>
+                    <td>{tx.payment_method || 'Chèque'}</td>
                     <td>
                       <span className={`badge ${tx.type}`}>
                         {tx.type}
@@ -233,15 +274,65 @@ export default function Tresor() {
                     </td>
                     <td>
                       <span className={`badge ${tx.status}`}>
-                        {tx.status}
+                        {tx.status === 'confirmé' ? 'payé' : (tx.status === 'en_attente' ? 'impayé' : tx.status)}
                       </span>
                     </td>
                   </tr>
                 ))}
-                {filteredTransactions.length === 0 && (
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          /* Cheques view */
+          <div className="table-container">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Réception</th>
+                  <th>Banque</th>
+                  <th>N° Chèque</th>
+                  <th>Partenaire</th>
+                  <th>Réf Facture</th>
+                  <th>Échéance</th>
+                  <th>Flux</th>
+                  <th>Montant</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCheques.map((chq) => {
+                  const isOverdue = new Date(chq.due_date) < new Date() && chq.status !== 'recouvré';
+                  return (
+                    <tr key={chq.id}>
+                      <td>{new Date(chq.received_date).toLocaleDateString('fr-FR')}</td>
+                      <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{chq.bank}</td>
+                      <td style={{ fontFamily: 'monospace' }}>{chq.number}</td>
+                      <td>{chq.partner_name}</td>
+                      <td>{chq.reference || '-'}</td>
+                      <td style={{ color: isOverdue ? 'var(--danger)' : 'var(--text-primary)', fontWeight: isOverdue ? '600' : '400' }}>
+                        {new Date(chq.due_date).toLocaleDateString('fr-FR')}
+                        {isOverdue && ' (Échue)'}
+                      </td>
+                      <td>
+                        <span className={`badge ${chq.type === 'IN' ? 'client' : 'fournisseur'}`}>
+                          {chq.type === 'IN' ? 'Reçu' : 'Émis'}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: '600' }}>
+                        {chq.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      </td>
+                      <td>
+                        <span className={`badge ${chq.status}`}>
+                          {chq.status === 'recouvré' ? 'Encaissé' : 'Impayé'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredCheques.length === 0 && (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
-                      Aucune transaction trouvée.
+                    <td colSpan="9" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
+                      Aucun chèque correspondant à vos filtres.
                     </td>
                   </tr>
                 )}
@@ -299,7 +390,7 @@ export default function Tresor() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Partenaire (Optionnel)</label>
+                <label className="form-label">Partenaire</label>
                 <select 
                   className="form-input" 
                   value={partnerId} 
@@ -322,10 +413,10 @@ export default function Tresor() {
                     value={paymentMethod} 
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   >
+                    <option value="Chèque">Chèque</option>
                     <option value="Virement">Virement</option>
                     <option value="Espèces">Espèces</option>
                     <option value="Carte">Carte</option>
-                    <option value="Chèque">Chèque</option>
                   </select>
                 </div>
                 <div className="form-group">

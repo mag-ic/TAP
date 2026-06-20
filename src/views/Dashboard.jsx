@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { mockTransactions, mockStock, mockSavTickets } from '../lib/mockData';
 import { 
   TrendingUp, 
   Wallet, 
   AlertTriangle, 
   Wrench, 
   Database,
-  ArrowRight,
-  TrendingDown
+  ArrowRight
 } from 'lucide-react';
 
 export default function Dashboard({ setActiveTab }) {
@@ -29,7 +29,7 @@ export default function Dashboard({ setActiveTab }) {
         // Try fetching from Supabase
         const { data: txs, error: txError } = await supabase
           .from('transactions')
-          .select('*, partners(name)')
+          .select('*')
           .order('date', { ascending: false })
           .limit(5);
 
@@ -40,7 +40,7 @@ export default function Dashboard({ setActiveTab }) {
         const { data: savTickets, error: savError } = await supabase
           .from('sav_tickets')
           .select('status')
-          .eq('status', 'ouvert');
+          .neq('status', 'résolu');
 
         if (txError || stockError || savError) {
           throw new Error('Supabase tables not found');
@@ -62,29 +62,42 @@ export default function Dashboard({ setActiveTab }) {
         const lowStockCount = stockItems.filter(item => item.quantity <= item.min_quantity).length;
 
         setMetrics({
-          sales: salesTotal || 2100.00,
-          treasury: (incomeTotal - expenseTotal) || 2600.00,
+          sales: salesTotal,
+          treasury: incomeTotal - expenseTotal,
           lowStock: lowStockCount,
           savTickets: savTickets.length
         });
         setRecentTransactions(txs || []);
         setUsingMockData(false);
       } catch (err) {
-        // Fallback to beautiful mock data if Supabase tables are not yet created
+        // Fallback to real parsed business mock data
         setUsingMockData(true);
+        
+        // Calculate totals from mock data
+        const salesTotal = mockTransactions
+          .filter(t => t.type === 'vente' && t.status === 'confirmé')
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+
+        const incomeTotal = mockTransactions
+          .filter(t => (t.type === 'vente' || t.type === 'revenu') && t.status === 'confirmé')
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+        
+        const expenseTotal = mockTransactions
+          .filter(t => (t.type === 'achat' || t.type === 'charge') && t.status === 'confirmé')
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+
+        const lowStockCount = mockStock.filter(item => item.quantity <= item.min_quantity).length;
+        const openSavTickets = mockSavTickets.filter(t => t.status !== 'résolu').length;
+
         setMetrics({
-          sales: 2100.00,
-          treasury: 2600.00,
-          lowStock: 2,
-          savTickets: 2
+          sales: salesTotal,
+          treasury: incomeTotal - expenseTotal,
+          lowStock: lowStockCount,
+          savTickets: openSavTickets
         });
-        setRecentTransactions([
-          { id: '1', type: 'vente', amount: 1250.00, description: 'Facture F-2026-001 - Travaux électricité', date: '2026-06-18', partners: { name: 'Jean Dupont' }, status: 'confirmé' },
-          { id: '2', type: 'vente', amount: 850.00, description: 'Facture F-2026-002 - Dépannage plomberie', date: '2026-06-19', partners: { name: 'Marie Leroux' }, status: 'confirmé' },
-          { id: '3', type: 'achat', amount: 600.00, description: 'Achat de bobines de câble cuivre', date: '2026-06-10', partners: { name: 'Industries Métal-Pro' }, status: 'confirmé' },
-          { id: '4', type: 'charge', amount: 150.00, description: 'Abonnement Télécom & Internet', date: '2026-06-13', partners: null, status: 'confirmé' },
-          { id: '5', type: 'revenu', amount: 2500.00, description: 'Apport en capital / Remboursement TVA', date: '2026-06-19', partners: null, status: 'confirmé' }
-        ]);
+        
+        // Show first 5 recent transactions
+        setRecentTransactions(mockTransactions.slice(0, 5));
       } finally {
         setLoading(false);
       }
@@ -103,9 +116,9 @@ export default function Dashboard({ setActiveTab }) {
         <div className="alert-banner">
           <Database size={24} style={{ flexShrink: 0 }} />
           <div>
-            <div className="alert-title">Mode Démo Activé (Données de simulation)</div>
+            <div className="alert-title">Mode Démo Activé (Données de simulation réelles issues de vos CSV)</div>
             <div className="alert-message">
-              Le tableau de bord s'affiche avec des données de démonstration. Pour connecter votre base de données réelle Supabase, exécutez le script SQL <code>supabase_schema.sql</code> (qui se trouve à la racine du projet) dans l'éditeur SQL de votre console Supabase.
+              L'application affiche les données de vos fichiers CSV locaux. Pour connecter votre base de données en ligne, exécutez le script SQL <code>supabase_schema.sql</code> dans l'éditeur SQL de Supabase.
             </div>
           </div>
         </div>
@@ -148,7 +161,7 @@ export default function Dashboard({ setActiveTab }) {
             <Wrench size={24} />
           </div>
           <div className="kpi-info">
-            <span className="kpi-label">Tickets SAV Ouverts</span>
+            <span className="kpi-label">Tickets SAV Actifs</span>
             <span className="kpi-value">{metrics.savTickets} ticket{metrics.savTickets > 1 ? 's' : ''}</span>
           </div>
         </div>
@@ -158,7 +171,7 @@ export default function Dashboard({ setActiveTab }) {
         {/* Recent Transactions Table */}
         <div className="glass-card">
           <div className="section-header">
-            <h3 className="section-title">Transactions Récentes</h3>
+            <h3 className="section-title">Derniers Mouvements Financiers</h3>
             <button className="btn btn-secondary btn-primary" style={{ padding: '6px 12px', fontSize: '13px' }} onClick={() => setActiveTab('tresor')}>
               Tout voir <ArrowRight size={14} />
             </button>
@@ -171,6 +184,7 @@ export default function Dashboard({ setActiveTab }) {
                   <th>Date</th>
                   <th>Description</th>
                   <th>Partenaire</th>
+                  <th>Méthode</th>
                   <th>Type</th>
                   <th>Montant</th>
                   <th>Statut</th>
@@ -180,8 +194,9 @@ export default function Dashboard({ setActiveTab }) {
                 {recentTransactions.map((tx) => (
                   <tr key={tx.id}>
                     <td>{new Date(tx.date).toLocaleDateString('fr-FR')}</td>
-                    <td>{tx.description}</td>
-                    <td>{tx.partners ? tx.partners.name : '-'}</td>
+                    <td style={{ fontWeight: '500' }}>{tx.description}</td>
+                    <td>{tx.partner_name || '-'}</td>
+                    <td>{tx.payment_method || 'Chèque'}</td>
                     <td>
                       <span className={`badge ${tx.type}`}>
                         {tx.type}
@@ -192,7 +207,7 @@ export default function Dashboard({ setActiveTab }) {
                     </td>
                     <td>
                       <span className={`badge ${tx.status}`}>
-                        {tx.status}
+                        {tx.status === 'confirmé' ? 'payé' : (tx.status === 'en_attente' ? 'impayé' : tx.status)}
                       </span>
                     </td>
                   </tr>
@@ -207,17 +222,17 @@ export default function Dashboard({ setActiveTab }) {
           <div>
             <h3 className="section-title" style={{ marginBottom: '16px' }}>TAP Manager</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '16px' }}>
-              Bienvenue sur votre espace de gestion d'entreprise intégré.
+              Base de données chargée avec succès à partir de vos fichiers d'inventaire, de contacts clients, de facturation et de SAV.
             </p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '16px' }}>
-              Utilisez la barre latérale pour naviguer entre les différents modules de Trésorerie, de Stock, de Pièces de Rechange, de Partenaires, et de SAV.
+              L'application s'adapte automatiquement aux structures de votre entreprise (chiffres d'affaires réels, suivi des chèques et de la trésorerie).
             </p>
           </div>
           <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Base de Données</div>
             <div style={{ fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: usingMockData ? 'var(--warning)' : 'var(--success)' }} />
-              {usingMockData ? 'Connecté (Mode Simulation)' : 'Connecté à Supabase'}
+              {usingMockData ? 'Connecté (Fichiers CSV TAP)' : 'Connecté à Supabase'}
             </div>
           </div>
         </div>

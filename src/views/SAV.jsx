@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { mockSavTickets } from '../lib/mockData';
 import { ClipboardEdit, Search, Plus, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function SAV() {
@@ -12,11 +13,11 @@ export default function SAV() {
 
   // Form states
   const [clientName, setClientName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
   const [equipment, setEquipment] = useState('');
   const [issue, setIssue] = useState('');
+  const [cost, setCost] = useState('0');
+  const [solution, setSolution] = useState('');
   const [priority, setPriority] = useState('moyenne');
-  const [assignedTechnician, setAssignedTechnician] = useState('');
 
   const fetchTickets = async () => {
     try {
@@ -32,11 +33,7 @@ export default function SAV() {
       setUsingMockData(false);
     } catch (err) {
       setUsingMockData(true);
-      setTickets([
-        { id: '1', client_name: 'Pierre Durant', client_phone: '+33 6 5555 4444', equipment: 'Chaudière Gaz Frisquet', issue: 'Bruit suspect et baisse de pression', status: 'en_cours', priority: 'élevée', assigned_technician: 'Thomas Martin', created_at: new Date().toISOString() },
-        { id: '2', client_name: 'Alice Blanc', client_phone: '+33 6 4444 3333', equipment: 'Climatisation Daikin', issue: 'Ne refroidit plus', status: 'ouvert', priority: 'moyenne', assigned_technician: '', created_at: new Date().toISOString() },
-        { id: '3', client_name: 'Robert Martin', client_phone: '+33 6 3333 2222', equipment: 'Tableau Électrique', issue: 'Court-circuit sur le circuit cuisine', status: 'résolu', priority: 'élevée', assigned_technician: 'Thomas Martin', created_at: new Date().toISOString() }
-      ]);
+      setTickets(mockSavTickets);
     } finally {
       setLoading(false);
     }
@@ -51,22 +48,22 @@ export default function SAV() {
     if (!clientName || !equipment || !issue) return;
 
     const newTicket = {
+      id: 'sav-' + Math.floor(Math.random() * 100000000000),
       client_name: clientName,
-      client_phone: clientPhone || null,
+      client_phone: null,
       equipment,
       issue,
+      cost: parseFloat(cost) || 0,
+      solution: solution || null,
       status: 'ouvert',
       priority,
-      assigned_technician: assignedTechnician || null
+      ticket_number: 'SAV-' + Math.floor(Math.random() * 1000000),
+      created_at: new Date().toISOString().split('T')[0],
+      updated_at: new Date().toISOString().split('T')[0]
     };
 
     if (usingMockData) {
-      const mockNewTicket = {
-        ...newTicket,
-        id: Math.random().toString(),
-        created_at: new Date().toISOString()
-      };
-      setTickets([mockNewTicket, ...tickets]);
+      setTickets([newTicket, ...tickets]);
     } else {
       const { error } = await supabase.from('sav_tickets').insert([newTicket]);
       if (error) {
@@ -78,11 +75,10 @@ export default function SAV() {
 
     // Reset Form
     setClientName('');
-    setClientPhone('');
     setEquipment('');
     setIssue('');
-    setPriority('moyenne');
-    setAssignedTechnician('');
+    setCost('0');
+    setSolution('');
     setShowModal(false);
   };
 
@@ -106,7 +102,8 @@ export default function SAV() {
   const filteredTickets = tickets.filter(t => {
     const matchesSearch = t.client_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           t.equipment.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          t.issue.toLowerCase().includes(searchTerm.toLowerCase());
+                          t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (t.ticket_number && t.ticket_number.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -137,7 +134,7 @@ export default function SAV() {
             <AlertCircle size={24} />
           </div>
           <div className="kpi-info">
-            <span className="kpi-label">Tickets Non Assignés</span>
+            <span className="kpi-label">Tickets Non Résolus</span>
             <span className="kpi-value">{openTicketsCount} ticket{openTicketsCount > 1 ? 's' : ''}</span>
           </div>
         </div>
@@ -147,7 +144,7 @@ export default function SAV() {
             <RefreshCw size={24} />
           </div>
           <div className="kpi-info">
-            <span className="kpi-label">Interventions en cours</span>
+            <span className="kpi-label">Interventions en Cours</span>
             <span className="kpi-value">{inProgressTicketsCount} ticket{inProgressTicketsCount > 1 ? 's' : ''}</span>
           </div>
         </div>
@@ -160,7 +157,7 @@ export default function SAV() {
             <Search size={18} className="search-icon" />
             <input
               type="text"
-              placeholder="Rechercher par client, équipement, problème..."
+              placeholder="Rechercher par client, équipement, n° ticket..."
               className="form-input search-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -173,9 +170,9 @@ export default function SAV() {
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="all">Tous les statuts</option>
-            <option value="ouvert">Ouvert</option>
-            <option value="en_cours">En Cours</option>
-            <option value="résolu">Résolu</option>
+            <option value="ouvert">Diagnostic</option>
+            <option value="en_cours">Échange</option>
+            <option value="résolu">Clôturé</option>
           </select>
         </div>
       </div>
@@ -189,33 +186,30 @@ export default function SAV() {
             <table className="custom-table">
               <thead>
                 <tr>
+                  <th>N° Ticket</th>
                   <th>Client</th>
-                  <th>Équipement</th>
-                  <th>Problème signalé</th>
-                  <th>Priorité</th>
-                  <th>Technicien</th>
+                  <th>Matériel</th>
+                  <th>Problème (Panne)</th>
+                  <th>Solution Apportée</th>
+                  <th>Coût intervention</th>
+                  <th>Date Création</th>
                   <th>Statut</th>
-                  <th style={{ textAlign: 'right' }}>Modifier le Statut</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredTickets.map((ticket) => (
                   <tr key={ticket.id}>
-                    <td>
-                      <div style={{ fontWeight: '600' }}>{ticket.client_name}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.client_phone || '-'}</div>
-                    </td>
-                    <td style={{ fontWeight: '500' }}>{ticket.equipment}</td>
-                    <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{ticket.issue}</td>
-                    <td>
-                      <span className={`badge ${ticket.priority}`}>
-                        {ticket.priority}
-                      </span>
-                    </td>
-                    <td>{ticket.assigned_technician || 'Non assigné'}</td>
+                    <td style={{ fontFamily: 'monospace', fontWeight: '600' }}>{ticket.ticket_number}</td>
+                    <td style={{ fontWeight: '600' }}>{ticket.client_name}</td>
+                    <td style={{ fontWeight: '500' }}>{ticket.equipment || ticket.product_name}</td>
+                    <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{ticket.description}</td>
+                    <td style={{ fontSize: '13px', color: 'var(--success)', fontWeight: '500' }}>{ticket.solution || '-'}</td>
+                    <td style={{ fontWeight: '600' }}>{Number(ticket.cost).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
+                    <td>{ticket.created_at ? new Date(ticket.created_at).toLocaleDateString('fr-FR') : '-'}</td>
                     <td>
                       <span className={`badge ${ticket.status}`}>
-                        {ticket.status}
+                        {ticket.status === 'ouvert' ? 'Diagnostic' : (ticket.status === 'en_cours' ? 'Échange' : 'Clôturé')}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
@@ -226,7 +220,7 @@ export default function SAV() {
                             style={{ padding: '4px 8px', fontSize: '12px' }}
                             onClick={() => handleUpdateStatus(ticket.id, 'en_cours')}
                           >
-                            Démarrer
+                            Diagnostiquer
                           </button>
                         )}
                         {ticket.status === 'en_cours' && (
@@ -235,23 +229,16 @@ export default function SAV() {
                             style={{ padding: '4px 8px', fontSize: '12px', borderColor: 'var(--success)', color: 'var(--success)' }}
                             onClick={() => handleUpdateStatus(ticket.id, 'résolu')}
                           >
-                            <CheckCircle2 size={12} /> Résoudre
+                            Clôturer
                           </button>
                         )}
                         {ticket.status === 'résolu' && (
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Intervention close</span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Clôturé</span>
                         )}
                       </div>
                     </td>
                   </tr>
                 ))}
-                {filteredTickets.length === 0 && (
-                  <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
-                      Aucun ticket d'assistance trouvé.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -271,7 +258,7 @@ export default function SAV() {
                   type="text"
                   className="form-input"
                   required
-                  placeholder="ex: Pierre Durant"
+                  placeholder="ex: BOUCHAIB DAIKO"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                 />
@@ -279,63 +266,49 @@ export default function SAV() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Téléphone du Client</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="ex: +33 6..."
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
                   <label className="form-label">Matériel / Équipement</label>
                   <input
                     type="text"
                     className="form-input"
                     required
-                    placeholder="ex: Pompe à Chaleur..."
+                    placeholder="ex: SV7900WF SIVIR"
                     value={equipment}
                     onChange={(e) => setEquipment(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Coût intervention HT (€)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-input"
+                    value={cost}
+                    onChange={(e) => setCost(e.target.value)}
                   />
                 </div>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Description du problème</label>
+                <label className="form-label">Description du problème (Panne)</label>
                 <textarea
                   className="form-input"
-                  style={{ minHeight: '80px', resize: 'vertical' }}
+                  style={{ minHeight: '60px', resize: 'vertical' }}
                   required
-                  placeholder="Expliquez la panne ou le problème..."
+                  placeholder="Panne constatée..."
                   value={issue}
                   onChange={(e) => setIssue(e.target.value)}
                 />
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Priorité</label>
-                  <select 
-                    className="form-input" 
-                    value={priority} 
-                    onChange={(e) => setPriority(e.target.value)}
-                  >
-                    <option value="faible">Faible</option>
-                    <option value="moyenne">Moyenne</option>
-                    <option value="élevée">Élevée</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Technicien Assigné (Optionnel)</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="ex: Thomas Martin"
-                    value={assignedTechnician}
-                    onChange={(e) => setAssignedTechnician(e.target.value)}
-                  />
-                </div>
+              <div className="form-group">
+                <label className="form-label">Solution envisagée / apportée</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="ex: ECHANGE"
+                  value={solution}
+                  onChange={(e) => setSolution(e.target.value)}
+                />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>

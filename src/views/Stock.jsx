@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { mockStock } from '../lib/mockData';
 import { Plus, Search, Box, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export default function Stock() {
@@ -16,7 +17,7 @@ export default function Stock() {
   const [sku, setSku] = useState('');
   const [category, setCategory] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [unit, setUnit] = useState('pcs');
+  const [declassedQuantity, setDeclassedQuantity] = useState('0');
   const [minQuantity, setMinQuantity] = useState('5');
   const [unitPrice, setUnitPrice] = useState('');
 
@@ -34,12 +35,7 @@ export default function Stock() {
       setUsingMockData(false);
     } catch (err) {
       setUsingMockData(true);
-      setStockItems([
-        { id: '1', name: 'Câble Électrique R2V 3G1.5', sku: 'CAB-R2V-3G15', category: 'Électricité', quantity: 150, unit: 'mètres', min_quantity: 50, unit_price: 1.25 },
-        { id: '2', name: 'Tuyau Cuivre Ø14', sku: 'TUY-CU-14', category: 'Plomberie', quantity: 45, unit: 'mètres', min_quantity: 15, unit_price: 4.80 },
-        { id: '3', name: 'Prise de courant double Legrand', sku: 'PRI-LEG-DBL', category: 'Électricité', quantity: 3, unit: 'pcs', min_quantity: 10, unit_price: 14.50 }, // low stock
-        { id: '4', name: 'Disjoncteur 16A Schneider', sku: 'DIS-SCH-16A', category: 'Électricité', quantity: 20, unit: 'pcs', min_quantity: 5, unit_price: 8.90 }
-      ]);
+      setStockItems(mockStock);
     } finally {
       setLoading(false);
     }
@@ -54,21 +50,18 @@ export default function Stock() {
     if (!name || !sku || !category || !quantity || !unitPrice) return;
 
     const newItem = {
+      id: Math.random().toString(),
       name,
       sku,
       category,
       quantity: parseInt(quantity),
-      unit,
+      declassed_quantity: parseInt(declassedQuantity) || 0,
       min_quantity: parseInt(minQuantity),
       unit_price: parseFloat(unitPrice)
     };
 
     if (usingMockData) {
-      const mockNewItem = {
-        ...newItem,
-        id: Math.random().toString()
-      };
-      setStockItems([...stockItems, mockNewItem]);
+      setStockItems([...stockItems, newItem]);
     } else {
       const { error } = await supabase.from('stock').insert([newItem]);
       if (error) {
@@ -83,14 +76,13 @@ export default function Stock() {
     setSku('');
     setCategory('');
     setQuantity('');
+    setDeclassedQuantity('0');
     setUnitPrice('');
     setShowModal(false);
   };
 
-  // Get categories
   const categories = [...new Set(stockItems.map(item => item.category))];
 
-  // Filters
   const filteredItems = stockItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           item.sku.toLowerCase().includes(searchTerm.toLowerCase());
@@ -105,7 +97,7 @@ export default function Stock() {
     <div>
       <div className="section-header">
         <h2 className="top-bar-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Box size={24} style={{ color: 'var(--primary)' }} /> Stock Général
+          <Box size={24} style={{ color: 'var(--primary)' }} /> Inventaire & Stocks
         </h2>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button className="btn btn-secondary" onClick={fetchStock}>
@@ -174,11 +166,11 @@ export default function Stock() {
                   <th>SKU</th>
                   <th>Nom</th>
                   <th>Catégorie</th>
-                  <th>Quantité</th>
-                  <th>Unité</th>
                   <th>Prix Unitaire</th>
-                  <th>Valeur Stock</th>
+                  <th>Stock Neuf</th>
+                  <th>Stock Déclassé</th>
                   <th>Seuil Alerte</th>
+                  <th>Valeur Globale (Neuf)</th>
                   <th>Statut</th>
                 </tr>
               </thead>
@@ -191,11 +183,11 @@ export default function Stock() {
                       <td style={{ fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
                       <td style={{ fontWeight: '500' }}>{item.name}</td>
                       <td>{item.category}</td>
-                      <td style={{ fontWeight: '600', color: isLow ? 'var(--danger)' : 'var(--text-primary)' }}>{item.quantity}</td>
-                      <td>{item.unit}</td>
                       <td>{Number(item.unit_price).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
-                      <td style={{ fontWeight: '600' }}>{value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
+                      <td style={{ fontWeight: '600', color: isLow ? 'var(--danger)' : 'var(--text-primary)' }}>{item.quantity}</td>
+                      <td style={{ fontWeight: '600', color: item.declassed_quantity > 0 ? 'var(--warning)' : 'var(--text-muted)' }}>{item.declassed_quantity || 0}</td>
                       <td>{item.min_quantity}</td>
+                      <td style={{ fontWeight: '600' }}>{value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
                       <td>
                         <span className={`badge ${isLow ? 'ouvert' : 'confirmé'}`}>
                           {isLow ? 'Alerte' : 'Ok'}
@@ -204,13 +196,6 @@ export default function Stock() {
                     </tr>
                   );
                 })}
-                {filteredItems.length === 0 && (
-                  <tr>
-                    <td colSpan="9" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
-                      Aucun article trouvé.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -230,7 +215,7 @@ export default function Stock() {
                   type="text"
                   className="form-input"
                   required
-                  placeholder="ex: Câble Cuivre..."
+                  placeholder="ex: SV09IAC SIVIR..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -243,7 +228,7 @@ export default function Stock() {
                     type="text"
                     className="form-input"
                     required
-                    placeholder="ex: CAB-COP-10"
+                    placeholder="ex: SIVIR"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
                   />
@@ -254,7 +239,7 @@ export default function Stock() {
                     type="text"
                     className="form-input"
                     required
-                    placeholder="ex: Électricité, Plomberie..."
+                    placeholder="ex: TV, MAL AUTO, MURAL..."
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                   />
@@ -263,7 +248,7 @@ export default function Stock() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Quantité Initiale</label>
+                  <label className="form-label">Stock Neuf</label>
                   <input
                     type="number"
                     className="form-input"
@@ -274,17 +259,14 @@ export default function Stock() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Unité de mesure</label>
-                  <select 
-                    className="form-input" 
-                    value={unit} 
-                    onChange={(e) => setUnit(e.target.value)}
-                  >
-                    <option value="pcs">Pièces (pcs)</option>
-                    <option value="mètres">Mètres (m)</option>
-                    <option value="litres">Litres (L)</option>
-                    <option value="kg">Kilogrammes (kg)</option>
-                  </select>
+                  <label className="form-label">Stock Déclassé</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="0"
+                    value={declassedQuantity}
+                    onChange={(e) => setDeclassedQuantity(e.target.value)}
+                  />
                 </div>
               </div>
 

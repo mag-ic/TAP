@@ -1,136 +1,318 @@
--- Enable UUID generation
-create extension if not exists "uuid-ossp";
 
--- 1. PARTNERS (Clients and Suppliers)
-create table if not exists public.partners (
-    id uuid default uuid_generate_v4() primary key,
-    name text not null,
-    type text not null check (type in ('client', 'fournisseur')),
-    email text,
-    phone text,
-    address text,
-    company_name text,
+-- Reset existing data to avoid key collisions
+truncate table public.sav_tickets cascade;
+truncate table public.debts cascade;
+truncate table public.transactions cascade;
+truncate table public.stock cascade;
+truncate table public.partners cascade;
+
+-- Alter tables to match exact CSV schemas if necessary
+alter table public.partners add column if not exists city text;
+alter table public.partners add column if not exists ice text;
+alter table public.partners add column if not exists if_id text;
+
+alter table public.stock add column if not exists declassed_quantity integer default 0;
+
+-- Create cheques table
+create table if not exists public.cheques (
+    id text primary key,
+    type text not null,
+    reference text,
+    status text not null,
+    partner_name text,
+    due_date date,
+    amount decimal(12, 2) not null,
+    bank text,
+    number text,
+    received_date date,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 2. GENERAL INVENTORY / STOCK
-create table if not exists public.stock (
-    id uuid default uuid_generate_v4() primary key,
-    name text not null,
-    sku text unique not null,
-    category text not null,
-    quantity integer default 0 not null,
-    unit text default 'pcs' not null,
-    min_quantity integer default 5 not null,
-    unit_price decimal(12, 2) default 0.00 not null,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- 3. SPARE PARTS (Pièces Rechange)
-create table if not exists public.spare_parts (
-    id uuid default uuid_generate_v4() primary key,
-    name text not null,
-    part_number text unique not null,
-    category text not null,
-    quantity integer default 0 not null,
-    min_quantity integer default 2 not null,
-    unit_price decimal(12, 2) default 0.00 not null,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- 4. TRANSACTIONS (Trésor, Finance, Entrées, Ventes)
-create table if not exists public.transactions (
-    id uuid default uuid_generate_v4() primary key,
-    type text not null check (type in ('vente', 'achat', 'charge', 'revenu')),
+-- Recreate transactions table with support for JSON items and flexible IDs
+drop table if exists public.transactions cascade;
+create table public.transactions (
+    id text primary key,
+    type text not null,
     amount decimal(12, 2) not null,
     description text,
-    partner_id uuid references public.partners(id) on delete set null,
-    date date default current_date not null,
-    payment_method text default 'Virement' check (payment_method in ('Virement', 'Espèces', 'Carte', 'Chèque')),
-    status text default 'confirmé' check (status in ('confirmé', 'en_attente', 'annulé')),
+    partner_id uuid, -- for relationships if uuid is used
+    partner_name text,
+    date date not null,
+    payment_method text,
+    status text not null,
+    items jsonb,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 5. RECOUVREMENTS (Debts and unpaid invoices)
-create table if not exists public.debts (
-    id uuid default uuid_generate_v4() primary key,
-    partner_id uuid references public.partners(id) on delete cascade not null,
-    amount decimal(12, 2) not null,
-    due_date date not null,
-    status text default 'impayé' check (status in ('impayé', 'partiel', 'recouvré')),
-    invoice_number text not null,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- 6. SAV TICKETS (After-Sales Service)
-create table if not exists public.sav_tickets (
-    id uuid default uuid_generate_v4() primary key,
+-- Recreate sav_tickets to match CSV
+drop table if exists public.sav_tickets cascade;
+create table public.sav_tickets (
+    id text primary key,
     client_name text not null,
-    client_phone text,
-    equipment text not null,
-    issue text not null,
-    status text default 'ouvert' check (status in ('ouvert', 'en_cours', 'résolu')),
-    priority text default 'moyenne' check (priority in ('faible', 'moyenne', 'élevée')),
-    assigned_technician text,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+    client_id text,
+    product_name text,
+    product_id text,
+    ticket_number text,
+    description text,
+    solution text,
+    cost decimal(12, 2) default 0.00,
+    status text not null,
+    created_at date,
+    updated_at date
 );
 
--- Seed Initial Data
-insert into public.partners (name, type, email, phone, address, company_name) values
-('Jean Dupont', 'client', 'jean.dupont@email.com', '+33 6 1234 5678', 'Paris, France', 'Dupont Bâtiment'),
-('Marie Leroux', 'client', 'marie.leroux@email.com', '+33 6 8765 4321', 'Lyon, France', 'Leroux SARL'),
-('Industries Métal-Pro', 'fournisseur', 'sales@metalpro.com', '+33 1 4567 8900', 'Lille, France', 'MetalPro S.A.'),
-('ElectroComposants', 'fournisseur', 'contact@electrocomp.com', '+33 2 9876 5432', 'Nantes, France', 'ElectroComposants Ltd')
-on conflict do nothing;
+-- Seed Partners
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769607910689', 'ESPACE STEEL', 'client', 'info@espacesteel.com', NULL, 'MEDIOUNA', 'CASABLANCA', '001541789000023', '2265372') on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769607942478', 'MY ELECTRO', 'client', NULL, NULL, NULL, 'SETTAT', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769607987360', 'MTM KECH', 'client', NULL, NULL, NULL, 'MARRAKECH', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769607999896', 'LOTFI', 'client', NULL, NULL, NULL, 'MDIAQ', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769608011661', 'JERJINI', 'client', NULL, NULL, NULL, 'SIDI SLIMANE', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769608027590', 'MACTRA SARL', 'client', NULL, NULL, NULL, 'CASABLANCA', '001538270000073', '1087915') on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769608046710', 'JET MODULAIRE', 'client', NULL, NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1771845023376', 'FOCUS PROJECT', 'client', 'contact@focusproject.ma', '06 63 61 30 94', 'Sidi Maârouf', 'CASABLANCA', '003126789000065', '52617476') on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1773397265896', 'TARIK TP CL', 'client', 'tarik@gmail.com', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1773397295181', 'ALI TP CL', 'client', 'ghalem092@gmail.comm', NULL, NULL, 'MOHAMMEDIA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775051803542', 'ZOUINE', 'client', 'INZEGAN@INZEGAN.COM', NULL, NULL, 'INZEGAN', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775118239468', 'ROCKCLIM', 'client', 'ROCK@CLIM.COM', NULL, NULL, 'SETTAT', '003084481000012', '52499865') on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775118559868', 'ELECTRO BELAID', 'client', 'BELAID@ELECTRO.COM', NULL, NULL, 'AGADIR', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775121769975', 'TCHRI ELECTRO', 'client', 'TCHRI@ELECTRO.COM', NULL, NULL, 'MARRAKECH', '003684079000069', NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775123926144', 'ADZ CONSTRUCTIONS', 'client', 'ADZ@ADZ.COM', NULL, NULL, 'CASABLANCA', '003534459000050', NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775124156620', 'BARAKATE ALQODS', 'client', 'TESTE@TESTE.COM', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775124260108', 'MOHAMMED HAY MOHAMADI', 'client', 'TESTE@TESTE.COM', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775141973029', 'ABOUDRAR', 'client', 'ABOUDRAR@ABD.COM', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775208034062', 'ELECTRO JIHADIA', 'client', 'JIHADIA@ELCTRO.COM', NULL, NULL, 'INZEGAN', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775397965765', 'OMAR YOUSSFI', 'client', 'OMAR@OMAR.COM', NULL, NULL, 'TANGER', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775461290851', 'AWANI RACHID', 'client', 'RACHID@RACHID.COM', NULL, NULL, 'TANGER', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775461526661', 'JAWAD', 'client', 'JAWAD@JAWAD.COM', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775470409456', 'ELECTRO BENABOUD', 'client', 'BENABOUD@ELECTRO.COM', NULL, NULL, 'FNIDEQ', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775473291745', 'EASY PROJET', 'client', 'H@M.COM', NULL, NULL, 'CASABLANCA', '002922175000008', NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775481974401', 'DISTRONIC', 'client', 'DISTRONIC@MA.COM', NULL, NULL, 'MARRAKECH', '002444283000005', NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775560140513', 'SAID', 'client', 'SAID@EMAIL.COM', NULL, NULL, 'MARRAKECH', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775564635441', 'MLY AHMED', 'client', 'HM@MM.COM', NULL, NULL, 'MARRAKECH', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775722033135', 'MOUHCINE DEPOT', 'client', 'MC@DP.COM', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775859479695', 'PRO NEGOCE', 'client', 'HAMZA@RGUIG.COM', NULL, NULL, 'CASABLANCA', '002871600000064', NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775861111863', 'MOUKHTAR RIAD OULFA', 'client', 'MOUKHTAR@OULFA.COM', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1775861584912', 'ADIL DEROUA', 'client', 'ADIL@DEROUA.COM', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1776423873024', 'TAMSSAMANI', 'client', 'MO@TAM.COM', NULL, NULL, 'TANGER', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1776424819818', 'LMKANSSA', 'client', 'MK@SA.COM', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1776511705124', 'HMED', 'client', 'HMED@BIR.COM', NULL, NULL, 'BIR JDID', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1776683886606', 'AMSAK', 'client', 'AM@NA.COM', NULL, NULL, 'NADOR', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1777459702767', 'BRAHIM OULFA', 'client', 'br@ou.com', NULL, NULL, 'CASABLANCA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1777979872740', 'MOHAMMED HOUCEIMA', 'client', 'MH@HC.MA', NULL, NULL, 'HOUCEIMA', NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1779106178865', 'BR SALAM IMMO', 'client', 'SL@IMMO.COM', NULL, NULL, 'CASABLANCA', '003515707000014', NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1779106400000', 'KAJID PROMO', 'client', 'KAJID@PROMO.COM', NULL, NULL, 'CASABLANCA', '003222740000064', NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769610790332', 'RAHTY ABOUDRAR', 'fournisseur', 'aboudrar@email.com', NULL, NULL, NULL, NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769608143022', 'GALAXY ELECTROWORLD', 'fournisseur', 'sales@galaxy.com', NULL, NULL, NULL, NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1773159314076', 'JL TRANSIT', 'fournisseur', NULL, NULL, NULL, NULL, NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1773324302180', 'OFRET', 'fournisseur', NULL, NULL, NULL, NULL, NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769608082000', 'TCL', 'fournisseur', NULL, NULL, NULL, NULL, NULL, NULL) on conflict (id) do nothing;
+insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769608073432', 'JUYUAN', 'fournisseur', NULL, NULL, NULL, NULL, NULL, NULL) on conflict (id) do nothing;
 
--- Query partner IDs to link transactions and debts accurately
-do $$
-declare
-    client1_id uuid;
-    client2_id uuid;
-    fourn1_id uuid;
-    fourn2_id uuid;
-begin
-    select id into client1_id from public.partners where name = 'Jean Dupont' limit 1;
-    select id into client2_id from public.partners where name = 'Marie Leroux' limit 1;
-    select id into fourn1_id from public.partners where name = 'Industries Métal-Pro' limit 1;
-    select id into fourn2_id from public.partners where name = 'ElectroComposants' limit 1;
+-- Seed Stock
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1769683860675', '12000BTU WEST', 'ON/OFF', 'MURAL', 0, 5, 2166.666666666667, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1774972097327', '18000BTU ROCH', 'ROCH', 'ON/OFF ROCH', 0, 5, 3000, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1769683845181', '9000BTU 4MELEC', 'ON/OFF', 'MURAL', 0, 5, 1833.3333333333335, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1771851829901', '9000BTU ROCH', 'ROCH ON/OFF', 'ON/OFF ROCH', 0, 5, 1791.6666666666667, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1775051921967', 'ST43X', 'SIVIR', 'TV', 0, 5, 0, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1773396015262', 'SV09IAC', 'SIVIR', '9000BTU INVERTER', 0, 5, 1121.2166666666667, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1773396078915', 'SV12IAC', 'SIVIR', '12000BTU INVERTER', 0, 5, 1121.2166666666667, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1770127083008', 'SV7900WF SIVIR', 'SIVIR', 'MAL AUTO', 0, 5, 756.6666666666667, 4) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1775054881472', 'SV8900WF SIVIR', 'SIVIR', 'MAL AUTO', 0, 5, 756.6666666666667, 1) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1773397719798', 'TESTE', 'CL', 'CL', 0, 5, 28988.333333333336, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1779106028193', 'TRIO ENCASTRABLE', 'SIVIR', 'ENCASTRABLE', 0, 5, 2125, 0) on conflict (id) do nothing;
 
-    -- Seed Stock
-    insert into public.stock (name, sku, category, quantity, unit, min_quantity, unit_price) values
-    ('Câble Électrique R2V 3G1.5', 'CAB-R2V-3G15', 'Électricité', 150, 'mètres', 50, 1.25),
-    ('Tuyau Cuivre Ø14', 'TUY-CU-14', 'Plomberie', 45, 'mètres', 15, 4.80),
-    ('Prise de courant double Legrand', 'PRI-LEG-DBL', 'Électricité', 8, 'pcs', 10, 14.50), -- low stock
-    ('Disjoncteur 16A Schneider', 'DIS-SCH-16A', 'Électricité', 20, 'pcs', 5, 8.90)
-    on conflict (sku) do nothing;
+-- Seed SAV Tickets
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1770127097230', 'BOUCHAIB DAIKO', 'ent-1769607969825', 'SV7900WF', 'prod-1770127083008', 'SAV-097230', 'ECRAN AFFICHEUR', NULL, 350, 'résolu', '2026-02-03', '2026-02-23') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1775051938165', 'INZEGAN', 'ent-1775051803542', 'ST43X', 'prod-1775051921967', 'SAV-938165', 'ECRAN', 'ECHANGE', 277.5, 'en_cours', '2026-04-01', '2026-04-03') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1775051948902', 'INZEGAN', 'ent-1775051803542', 'ST43X', 'prod-1775051921967', 'SAV-948902', 'ST43X', 'ECHANGE', 277.5, 'en_cours', '2026-04-01', '2026-04-03') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1775056208623', 'JERJINI', 'ent-1769608011661', 'SV8900WF SIVIR', 'prod-1775054881472', 'SAV-208623', 'INTACT', NULL, 0, 'en_cours', '2026-04-01', '2026-04-01') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1775056231166', 'JERJINI', 'ent-1769608011661', 'SV8900WF SIVIR', 'prod-1775054881472', 'SAV-231166', 'INTACT', NULL, 0, 'en_cours', '2026-04-01', '2026-04-01') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1775208486838', 'TCHRI ELECTRO', 'ent-1775121769975', 'ST43X', 'prod-1775051921967', 'SAV-486838', 'CASSE', NULL, 250, 'résolu', '2026-04-03', '2026-04-03') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1775484483409', 'ZOUINE', 'ent-1775051803542', 'SV8900WF SIVIR', 'prod-1775054881472', 'SAV-483409', 'TAMBOUR', NULL, 0, 'en_cours', '2026-04-06', '2026-04-06') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1776073937370', 'HASSAN MEDIOUNA', 'ent-1775473291745', 'SV7900WF SIVIR', 'prod-1770127083008', 'SAV-937370', 'CASSE', NULL, 0, 'en_cours', '2026-04-13', '2026-04-13') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1776093661992', 'TCHRI ELECTRO', 'ent-1775121769975', 'ST43X', 'prod-1775051921967', 'SAV-661992', 'CASSE', 'DEDUIT DU PAIEMENT LORS DU LIVRAISON', 700, 'résolu', '2026-04-13', '2026-04-13') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1776531944946', 'EASY PROJET', 'ent-1775473291745', 'SV7900WF SIVIR', 'prod-1770127083008', 'SAV-944946', 'CABOSSE', NULL, 300, 'résolu', '2026-04-18', '2026-04-18') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1776866530507', 'MTM KECH', 'ent-1769607987360', 'SV7900WF SIVIR', 'prod-1770127083008', 'SAV-530507', 'COUCHE PORTE', NULL, 30, 'résolu', '2026-04-22', '2026-04-22') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1776867218132', 'MTM KECH', 'ent-1769607987360', 'SV7900WF SIVIR', 'prod-1770127083008', 'SAV-218132', 'COUCHE TAMBOUR', NULL, 35, 'résolu', '2026-04-22', '2026-04-22') on conflict (id) do nothing;
+insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1779483415345', 'MOUKHTAR RIAD OULFA', 'ent-1775861111863', 'SV7900WF SIVIR', 'prod-1770127083008', 'SAV-415345', 'SORTIE D''EAU', NULL, 0, 'ouvert', '2026-05-22', '2026-05-22') on conflict (id) do nothing;
 
-    -- Seed Spare Parts (Pièces Rechange)
-    insert into public.spare_parts (name, part_number, category, quantity, min_quantity, unit_price) values
-    ('Filtre à Huile F-104', 'FLT-H-104', 'Moteur', 12, 4, 15.00),
-    ('Joint Torique 24mm', 'JNT-TOR-24', 'Plomberie', 200, 50, 0.15),
-    ('Résistance Chauffante 2000W', 'RES-CH-2000W', 'Chauffage', 1, 2, 45.00), -- low stock
-    ('Courroie de transmission C-45', 'CRT-C-45', 'Moteur', 3, 2, 22.50)
-    on conflict (part_number) do nothing;
+-- Seed Cheques
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1771846362093', 'IN', 'INV-26-0001', 'recouvré', 'MACTRA SARL', '2026-02-27', 53000, 'CDM', '2531766008', '2026-02-20') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1771846408823', 'IN', 'INV-26-0001', 'recouvré', 'MACTRA SARL', '2026-03-27', 54000, 'CDM', '2531766009', '2026-02-20') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775228026601', 'IN', 'INV-26-0004', 'recouvré', 'MACTRA SARL', '2026-04-06', 44800, 'CDM', '1766038', '2026-04-03') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1773308069998', 'OUT', 'AR-26-0001', 'recouvré', 'RAHTY ABOUDRAR', '2026-04-12', 60850, 'ATW', '665682', '2026-03-12') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776532249273', 'IN', 'INV-26-0003', 'recouvré', 'ESPACE STEEL', '2026-04-17', 117500, 'ATW', '001524', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778164815329', 'IN', 'INV-26-0051', 'recouvré', 'TAMSSAMANI', '2026-04-22', 8500, 'ATW', '1741', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777319742964', 'IN', 'INV-26-0050', 'recouvré', 'ADZ CONSTRUCTIONS', '2026-04-27', 11600, 'BP', '1300021', '2026-04-27') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778164840966', 'IN', 'INV-26-0051', 'recouvré', 'TAMSSAMANI', '2026-04-30', 8500, 'ATW', '1742', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775208306201', 'IN', 'INV-26-0013', 'recouvré', 'BARAKATE ALQODS', '2026-05-02', 5000, 'BP', '1300343', '2026-04-03') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529751596', 'IN', 'INV-26-0042', 'recouvré', 'MTM KECH', '2026-05-04', 15525, 'ATW', '018482', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529776616', 'IN', 'INV-26-0042', 'recouvré', 'MTM KECH', '2026-05-06', 15525, 'ATW', '018483', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778512397581', 'IN', 'INV-26-0022', 'recouvré', 'ABOUDRAR', '2026-05-06', 26950, 'ATW', '917006', '2026-05-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778512355309', 'IN', 'INV-26-0022', 'recouvré', 'ABOUDRAR', '2026-05-07', 20400, 'BP', '154205', '2026-05-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529021898', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-05-08', 10780, 'ATW', '335730', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775862249132', 'IN', 'INV-26-0023', 'recouvré', 'OMAR YOUSSFI', '2026-05-10', 28700, 'BP', '2100289', '2026-04-10') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778164874903', 'IN', 'INV-26-0051', 'recouvré', 'TAMSSAMANI', '2026-05-10', 8500, 'ATW', '1743', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778165212710', 'IN', 'INV-26-0051', 'recouvré', 'TAMSSAMANI', '2026-05-10', 8000, 'N/A', '1300328', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1773324438238', 'OUT', 'AR-26-0008', 'recouvré', 'OFRET', '2026-05-11', 109990.55, 'ATW', '665678', '2026-03-12') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529061558', 'IN', 'INV-26-0018', 'recouvré', 'MTM KECH', '2026-05-11', 10780, 'ATW', '335731', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659166975', 'IN', 'INV-26-0014', 'recouvré', 'MOHAMMED HAY MOHAMADI', '2026-05-11', 7000, 'Bp', '300121', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1773308215777', 'OUT', 'AR-26-0004', 'recouvré', 'RAHTY ABOUDRAR', '2026-05-12', 43600, 'ATW', '665681', '2026-03-12') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1773308314113', 'OUT', 'AR-26-0007', 'recouvré', 'RAHTY ABOUDRAR', '2026-05-12', 17200, 'ATW', '665681', '2026-03-12') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529810560', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-05-12', 15525, 'ATW', '018484', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1779105649163', 'IN', 'INV-26-0022', 'recouvré', 'ABOUDRAR', '2026-05-13', 8000, 'BMCE', '2003484', '2026-05-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1779105673921', 'IN', 'INV-26-0022', 'impayé', 'ABOUDRAR', '2026-05-13', 100, 'BMCE', 'N/A', '2026-05-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529828812', 'IN', 'INV-26-0042', 'recouvré', 'MTM KECH', '2026-05-14', 15525, 'ATW', '018485', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776531777970', 'IN', 'INV-26-0054', 'impayé', 'EASY PROJET', '2026-05-16', 30000, 'BMCE', '1048549', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529087999', 'IN', 'INV-26-0018', 'recouvré', 'MTM KECH', '2026-05-18', 10780, 'ATW', '335732', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776528366625', 'IN', 'INV-26-0053', 'recouvré', 'PRO NEGOCE', '2026-05-20', 25000, 'BMCE', '1463747', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530588936', 'IN', 'INV-26-0049', 'recouvré', 'LMKANSSA', '2026-05-20', 13750, 'BMCI', '1617958', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778164897250', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-05-20', 8500, 'ATW', '1744', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529125453', 'IN', 'INV-26-0018', 'recouvré', 'MTM KECH', '2026-05-21', 10780, 'ATW', '335733', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659314618', 'IN', 'INV-26-0052', 'recouvré', 'HMED', '2026-05-22', 6400, 'BMCE', '1108554', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529918000', 'IN', 'INV-26-0042', 'recouvré', 'MTM KECH', '2026-05-25', 15525, 'ATW', '018486', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775860597129', 'OUT', 'FACTURE OFFRET JUYUAN', 'recouvré', 'Divers', '2026-05-27', 77866.1, 'ATW', '665679', '2026-04-10') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775863021471', 'IN', 'INV-26-0024', 'recouvré', 'AWANI RACHID', '2026-05-30', 50000, 'CIH', '0001118', '2026-04-10') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659477734', 'IN', 'INV-26-0040', 'recouvré', 'ADIL DEROUA', '2026-05-30', 7000, 'ATW', '0201867', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778509619333', 'IN', 'INV-26-0029', 'recouvré', 'SAID', '2026-05-30', 95800, 'BP', '145207', '2026-05-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775208348587', 'IN', 'INV-26-0013', 'impayé', 'BARAKATE ALQODS', '2026-06-02', 6500, 'BP', '1300344', '2026-04-03') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529172279', 'IN', 'INV-26-0018', 'recouvré', 'MTM KECH', '2026-06-05', 10780, 'ATW', '10780', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781175982585', 'IN', 'INV-26-0020', 'recouvré', 'ELECTRO BELAID', '2026-06-06', 42000, 'BMCE', '11021', '2026-06-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776531810589', 'IN', 'INV-26-0054', 'impayé', 'EASY PROJET', '2026-06-07', 30000, 'BMCE', '1048550', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778509638960', 'IN', 'INV-26-0029', 'recouvré', 'SAID', '2026-06-07', 95800, 'BP', '145208', '2026-05-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529966585', 'IN', 'INV-26-0042', 'recouvré', 'MTM KECH', '2026-06-08', 15525, 'ATW', '018487', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775862315913', 'IN', 'INV-26-0023', 'impayé', 'OMAR YOUSSFI', '2026-06-10', 28800, 'BP', '2800290', '2026-04-10') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529996360', 'IN', 'INV-26-0042', 'recouvré', 'MTM KECH', '2026-06-10', 15525, 'ATW', '018488', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778509848151', 'IN', 'INV-26-0059', 'recouvré', 'BRAHIM OULFA', '2026-06-10', 18200, 'CA', '225780', '2026-05-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529221368', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-06-11', 10780, 'ATW', '335736', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659196592', 'IN', 'INV-26-0041', 'impayé', 'MOHAMMED HAY MOHAMADI', '2026-06-11', 7000, 'Bp', '130022', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1773308353764', 'OUT', 'AR-26-0002', 'recouvré', 'RAHTY ABOUDRAR', '2026-06-12', 44000, 'ATW', '665680', '2026-03-12') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1773308374327', 'OUT', 'AR-26-0001', 'recouvré', 'RAHTY ABOUDRAR', '2026-06-12', 10050, 'ATW', '665680', '2026-03-12') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1773308396900', 'OUT', 'AR-26-0007', 'recouvré', 'RAHTY ABOUDRAR', '2026-06-12', 6750, 'ATW', '665680', '2026-03-12') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778164969270', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-06-13', 8500, 'ATW', '1745', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530028436', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-06-16', 15525, 'ATW', '018489', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529251380', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-06-18', 10780, 'ATW', '335737', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530056681', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-06-19', 15525, 'ATW', '018490', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776528392492', 'IN', 'INV-26-0053', 'impayé', 'PRO NEGOCE', '2026-06-20', 25000, 'BMCE', '1463745', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530614411', 'IN', 'INV-26-0049', 'impayé', 'LMKANSSA', '2026-06-20', 13750, 'BMCI', '1617959', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781176004641', 'IN', 'INV-26-0020', 'impayé', 'ELECTRO BELAID', '2026-06-20', 42500, 'BMCE', '110212', '2026-06-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529283050', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-06-22', 10780, 'ATW', '335738', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659344438', 'IN', 'INV-26-0052', 'impayé', 'HMED', '2026-06-22', 6400, 'Bmce', '1103855', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778165003983', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-06-23', 8500, 'ATW', '1746', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529308197', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-06-24', 10780, 'ATW', '335739', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530079256', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-06-26', 15525, 'ATW', '018491', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659506655', 'IN', 'INV-26-0040', 'impayé', 'ADIL DEROUA', '2026-06-28', 7000, 'atw', '0201877', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775863065331', 'IN', 'INV-26-0024', 'impayé', 'AWANI RACHID', '2026-06-30', 18000, 'CFG', '0000853', '2026-04-10') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529329195', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-06-30', 10780, 'ATW', '335740', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530701408', 'IN', 'INV-26-0039', 'impayé', 'BARAKATE ALQODS', '2026-06-30', 5000, 'BP', '1300348', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781176057199', 'IN', 'INV-26-0026', 'impayé', 'ELECTRO BENABOUD', '2026-06-30', 10000, 'CA', '5196724', '2026-06-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529416249', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-07-02', 10780, 'ATW', '335741', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776531840019', 'IN', 'INV-26-0054', 'impayé', 'EASY PROJET', '2026-07-05', 20000, 'BMCE', '1048551', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530104531', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-07-06', 15525, 'ATW', '335747', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529436497', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-07-07', 10780, 'ATW', '335742', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778165036820', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-07-07', 8500, 'ATW', '1747', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775862346008', 'IN', 'INV-26-0023', 'impayé', 'OMAR YOUSSFI', '2026-07-10', 28750, 'BP', '2100291', '2026-04-10') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529457014', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-07-10', 10780, 'ATW', '335743', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778165157575', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-07-10', 8000, 'BP', '1752', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778509873942', 'IN', 'INV-26-0059', 'impayé', 'BRAHIM OULFA', '2026-07-10', 18200, 'CA', '285701', '2026-05-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659214526', 'IN', 'INV-26-0014', 'impayé', 'MOHAMMED HAY MOHAMADI', '2026-07-11', 4500, 'N/A', 'N/A', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659235249', 'IN', 'INV-26-0041', 'impayé', 'MOHAMMED HAY MOHAMADI', '2026-07-11', 2600, 'Bp', '130014', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778509665392', 'IN', 'INV-26-0029', 'impayé', 'SAID', '2026-07-12', 95800, 'BP', '145209', '2026-05-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530133400', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-07-13', 15525, 'ATW', '335748', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778165059067', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-07-13', 8500, 'ATW', '1748', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776528411999', 'IN', 'INV-26-0053', 'impayé', 'PRO NEGOCE', '2026-07-15', 25000, 'BMCE', '1463746', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529482516', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-07-15', 10780, 'ATW', '335744', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659534968', 'IN', 'INV-26-0040', 'impayé', 'ADIL DEROUA', '2026-07-15', 7000, 'ATW', '0201878', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781175877931', 'IN', 'INV-26-0028', 'impayé', 'DISTRONIC', '2026-07-15', 30000, 'ATW', '831942', '2026-06-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530155197', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-07-20', 15525, 'ATW', '335749', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530643030', 'IN', 'INV-26-0049', 'impayé', 'LMKANSSA', '2026-07-20', 13700, 'BMCI', '1617960', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530726849', 'IN', 'INV-26-0039', 'impayé', 'BARAKATE ALQODS', '2026-07-20', 9400, 'BP', '1300349', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529503715', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-07-22', 10780, 'ATW', '335745', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659383436', 'IN', 'INV-26-0052', 'impayé', 'HMED', '2026-07-22', 6400, 'Bmce', '2159501', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530187199', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-07-23', 15525, 'ATW', '335750', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778165080488', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-07-23', 8500, 'ATW', '1748', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1775863107233', 'IN', 'INV-26-0024', 'impayé', 'AWANI RACHID', '2026-07-24', 19100, 'CFG', '0000854', '2026-04-10') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778165239396', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-07-25', 11300, 'BP', '180091', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530211734', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-07-28', 15525, 'ATW', '335751', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778165094690', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-07-28', 8500, 'ATW', '1749', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778165139786', 'IN', 'INV-26-0051', 'impayé', 'TAMSSAMANI', '2026-07-28', 8000, 'BP', '1750', '2026-05-07') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776529524886', 'IN', 'INV-26-0018', 'impayé', 'MTM KECH', '2026-07-30', 10800, 'ATW', '335746', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1777659554938', 'IN', 'INV-26-0040', 'impayé', 'ADIL DEROUA', '2026-07-30', 6150, 'ATW', '0201879', '2026-05-01') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781176086727', 'IN', 'INV-26-0026', 'impayé', 'ELECTRO BENABOUD', '2026-07-30', 10000, 'CA', '1251352', '2026-06-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781175907523', 'IN', 'INV-26-0028', 'impayé', 'DISTRONIC', '2026-07-31', 34000, 'ATW', '831943', '2026-06-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530247806', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-08-03', 15525, 'ATW', '335752', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530267036', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-08-07', 15525, 'ATW', '335753', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1778509886654', 'IN', 'INV-26-0059', 'impayé', 'BRAHIM OULFA', '2026-08-10', 18200, 'CA', '285703', '2026-05-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781855453350', 'OUT', 'BC-26-00012', 'impayé', 'OFRET', '2026-08-11', 107660.38, 'ATW', '665683', '2026-06-19') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781855472522', 'OUT', 'BC-26-00012', 'impayé', 'OFRET', '2026-08-11', 109479.32, 'ATW', '665683', '2026-06-19') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530286730', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-08-17', 15525, 'ATW', '335754', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530322182', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-08-20', 15525, 'ATW', '335755', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781175923809', 'IN', 'INV-26-0028', 'impayé', 'DISTRONIC', '2026-08-20', 40000, 'ATW', '831944', '2026-06-11') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1776530356837', 'IN', 'INV-26-0042', 'impayé', 'MTM KECH', '2026-08-26', 15525, 'ATW', '335756', '2026-04-18') on conflict (id) do nothing;
+insert into public.cheques (id, type, reference, status, partner_name, due_date, amount, bank, number, received_date) values ('chq-1781176208616', 'IN', 'INV-26-0026', 'impayé', 'ELECTRO BENABOUD', '2026-08-30', 8750, 'CA', '1513210', '2026-06-11') on conflict (id) do nothing;
 
-    -- Seed Transactions
-    insert into public.transactions (type, amount, description, partner_id, date, payment_method, status) values
-    ('vente', 1250.00, 'Facture F-2026-001 - Travaux électricité', client1_id, current_date - 5, 'Virement', 'confirmé'),
-    ('vente', 850.00, 'Facture F-2026-002 - Dépannage plomberie', client2_id, current_date - 2, 'Carte', 'confirmé'),
-    ('achat', 600.00, 'Achat de bobines de câble cuivre', fourn1_id, current_date - 10, 'Virement', 'confirmé'),
-    ('charge', 150.00, 'Abonnement Télécom & Internet', null, current_date - 7, 'Espèces', 'confirmé'),
-    ('revenu', 2500.00, 'Apport en capital / Remboursement TVA', null, current_date - 1, 'Virement', 'confirmé')
-    on conflict do nothing;
-
-    -- Seed Debts (Recouvrement)
-    insert into public.debts (partner_id, amount, due_date, status, invoice_number) values
-    (client1_id, 450.00, current_date + 10, 'impayé', 'FAC-2026-003'),
-    (client2_id, 1200.00, current_date - 3, 'impayé', 'FAC-2026-004')
-    on conflict do nothing;
-
-    -- Seed SAV Tickets
-    insert into public.sav_tickets (client_name, client_phone, equipment, issue, status, priority, assigned_technician) values
-    ('Pierre Durant', '+33 6 5555 4444', 'Chaudière Gaz Frisquet', 'Bruit suspect et baisse de pression', 'en_cours', 'élevée', 'Thomas Martin'),
-    ('Alice Blanc', '+33 6 4444 3333', 'Climatisation Daikin', 'Ne refroidit plus', 'ouvert', 'moyenne', null),
-    ('Robert Martin', '+33 6 3333 2222', 'Tableau Électrique', 'Court-circuit sur le circuit cuisine', 'résolu', 'élevée', 'Thomas Martin')
-    on conflict do nothing;
-end $$;
+-- Seed Transactions
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1769683934691', 'achat', 100900.00000000001, 'Entrée AR-26-0001 - PO: BC005', 'RAHTY ABOUDRAR', '2026-01-29', 'Virement', 'confirmé', '[{"sku":"ON/OFF","quantity":40,"productName":"9000BTU 4MELEC","costPrice":1833.3333333333335,"productId":"prod-1769683845181"},{"costPrice":2150,"productId":"prod-1769683860675","sku":"ON/OFF","quantity":5,"productName":"12000BTU WEST"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1771844918042', 'achat', 44000, 'Entrée AR-26-0002 - PO: BC002', 'RAHTY ABOUDRAR', '2026-02-23', 'Virement', 'confirmé', '[{"quantity":20,"sku":"ON/OFF","productName":"9000BTU 4MELEC","productId":"prod-1769683845181","costPrice":1833.3333333333335}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1771851888728', 'achat', 107500.00000000001, 'Entrée AR-26-0003 - PO: BC003', 'GALAXY ELECTROWORLD', '2026-01-10', 'Virement', 'confirmé', '[{"productName":"9000BTU ROCH","sku":"ROCH ON/OFF","quantity":50,"costPrice":1791.6666666666667,"productId":"prod-1771851829901"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1773049057844', 'achat', 43600, 'Entrée AR-26-0004 - PO: BC004', 'RAHTY ABOUDRAR', '2026-03-09', 'Virement', 'confirmé', '[{"quantity":8,"sku":"ON/OFF","productName":"9000BTU 4MELEC","productId":"prod-1769683845181","costPrice":1833.3333333333335},{"productName":"12000BTU WEST","quantity":10,"sku":"ON/OFF","productId":"prod-1769683860675","costPrice":2166.666666666667}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1773160786980', 'achat', 6184.7, 'Entrée AR-26-0005 - PO: FINANCE-ACHAT', 'JL TRANSIT', '2025-12-02', 'Virement', 'confirmé', '[{"productName":"8281/25","quantity":1,"sku":"SERVICE","costPrice":5153.916666666667,"productId":"svc-1773160783002"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1773160837754', 'achat', 10129.360000000002, 'Entrée AR-26-0006 - PO: FINANCE-ACHAT', 'JL TRANSIT', '2025-10-04', 'Virement', 'confirmé', '[{"costPrice":8441.133333333335,"productId":"svc-1773160836619","quantity":1,"sku":"SERVICE","productName":"6893/25"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1773308024845', 'achat', 23950.000000000004, 'Entrée AR-26-0007 - PO: FINANCE-ACHAT', 'RAHTY ABOUDRAR', '2026-01-01', 'Virement', 'confirmé', '[{"productName":"RELIQUAT PAIEMENT","quantity":1,"sku":"SERVICE","costPrice":19958.333333333336,"productId":"svc-1773308023020"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1773324397696', 'achat', 109990.55, 'Entrée AR-26-0008 - PO: FINANCE-ACHAT', 'OFRET', '2026-03-12', 'Virement', 'confirmé', '[{"productName":"FCT 8155 / TCL","quantity":1,"sku":"SERVICE","costPrice":91658.79166666667,"productId":"svc-1773324393814"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1773396576633', 'achat', 971420.9295999999, 'Entrée AR-26-0009 - PO: N/A', 'TCL', '2026-03-13', 'Virement', 'confirmé', '[{"productName":"SV09IAC","quantity":372,"sku":"SIVIR","productId":"prod-1773396015262","costPrice":1121.214},{"costPrice":1121.2166666666667,"productId":"prod-1773396078915","sku":"SIVIR","quantity":350,"productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1774972141992', 'achat', 10800, 'Entrée BC-26-00010 - PO: BC-26-00010', 'GALAXY ELECTROWORLD', '2026-03-31', 'Virement', 'confirmé', '[{"costPrice":3000,"productId":"prod-1774972097327","productName":"18000BTU ROCH","sku":"ROCH","quantity":3}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1775860045984', 'achat', 453092.00000000006, 'Entrée BC-26-00011 - PO: BC-26-00011', 'JUYUAN', '2026-04-11', 'Virement', 'confirmé', '[{"costPrice":756.6666666666667,"productId":"prod-1770127083008","productName":"SV7900WF SIVIR","quantity":270,"sku":"SIVIR"},{"quantity":229,"sku":"SIVIR","productName":"SV8900WF SIVIR","costPrice":756.6666666666667,"productId":"prod-1775054881472"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('ste-1781855410889', 'achat', 217139.7, 'Entrée BC-26-00012 - PO: BC-26-00012', 'OFRET', '2026-06-11', 'Virement', 'confirmé', '[{"productName":"TRANSPORT TCL","sku":"SERVICE","quantity":1,"costPrice":91232.76666666668,"productId":"svc-1781855363507"},{"sku":"SERVICE","quantity":1,"productName":"TRANSPORT JU YUAN","costPrice":89716.98333333334,"productId":"svc-1781855409935"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1771851950770', 'vente', 117500, 'Facture INV-26-0003', 'ESPACE STEEL', '2026-01-10', 'Chèque', 'confirmé', '[{"productName":"9000BTU ROCH","quantity":50,"sku":"ROCH ON/OFF","unitPriceHT":1958.3333333333335,"totalHT":97916.66666666667}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1769684023850', 'vente', 107000.00000000001, 'Facture INV-26-0001', 'MACTRA SARL', '2026-01-29', 'Chèque', 'en_attente', '[{"quantity":40,"totalHT":78333.33333333334,"sku":"ON/OFF","unitPriceHT":1958.3333333333335,"productName":"9000BTU 4MELEC"},{"productName":"12000BTU WEST","quantity":5,"totalHT":10833.333333333336,"sku":"ON/OFF","unitPriceHT":2166.666666666667}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1773048535629', 'vente', 48000, 'Facture INV-26-0002', 'FOCUS PROJECT', '2026-02-23', 'Chèque', 'annulé', '[{"totalHT":40000,"unitPriceHT":2000,"sku":"ON/OFF","quantity":20,"productName":"9000BTU 4MELEC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776785933848', 'vente', 20000, 'Facture INV-26-0057', 'ALI TP CL', '2026-03-02', 'Chèque', 'confirmé', '[{"productName":"TESTE","quantity":1,"unitPriceHT":16666.666666666668,"totalHT":16666.666666666668,"sku":"CL"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1773049194685', 'vente', 44800.00000000001, 'Facture INV-26-0004', 'MACTRA SARL', '2026-03-04', 'Chèque', 'confirmé', '[{"unitPriceHT":1958.3333333333335,"totalHT":15666.666666666668,"sku":"ON/OFF","quantity":8,"productName":"9000BTU 4MELEC"},{"productName":"12000BTU WEST","quantity":10,"sku":"ON/OFF","totalHT":21666.66666666667,"unitPriceHT":2166.666666666667}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1773398378922', 'vente', 135000, 'Facture INV-26-0005', 'ALI TP CL', '2026-03-13', 'Virement', 'en_attente', '[{"productName":"TESTE","totalHT":112500,"unitPriceHT":22500,"sku":"CL","quantity":5}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1773398525914', 'vente', 40094.00000000001, 'Facture INV-26-0006', 'TARIK TP CL', '2026-03-13', 'Virement', 'confirmé', '[{"unitPriceHT":16705.833333333336,"totalHT":33411.66666666667,"sku":"CL","quantity":2,"productName":"TESTE"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775056304364', 'vente', 4800, 'Facture INV-26-0008', 'MY ELECTRO', '2026-03-25', 'Virement', 'confirmé', '[{"totalHT":4000,"unitPriceHT":2000,"sku":"SIVIR","quantity":2,"productName":"SV8900WF SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1774972376827', 'vente', 12000, 'Facture INV-26-0007', 'ESPACE STEEL', '2026-04-01', 'Chèque', 'annulé', '[{"productName":"18000BTU ROCH","quantity":3,"sku":"ROCH","totalHT":10000,"unitPriceHT":3333.3333333333335}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775118317153', 'vente', 55000, 'Facture INV-26-0009', 'ROCKCLIM', '2026-04-02', 'Chèque', 'confirmé', '[{"quantity":10,"totalHT":21250,"sku":"SIVIR","unitPriceHT":2125,"productName":"SV09IAC"},{"productName":"SV12IAC","sku":"SIVIR","totalHT":24583.333333333336,"unitPriceHT":2458.3333333333335,"quantity":10}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775123674097', 'vente', 86250, 'Facture INV-26-0011', 'TCHRI ELECTRO', '2026-04-02', 'Chèque', 'confirmé', '[{"productName":"SV09IAC","quantity":15,"unitPriceHT":2208.3333333333335,"totalHT":33125,"sku":"SIVIR"},{"productName":"SV12IAC","totalHT":38750,"unitPriceHT":2583.3333333333335,"sku":"SIVIR","quantity":15}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775124408314', 'vente', 11500, 'Facture INV-26-0013', 'BARAKATE ALQODS', '2026-04-02', 'Chèque', 'en_attente', '[{"quantity":2,"sku":"SIVIR","totalHT":4416.666666666667,"unitPriceHT":2208.3333333333335,"productName":"SV09IAC"},{"quantity":2,"sku":"SIVIR","unitPriceHT":2583.3333333333335,"totalHT":5166.666666666667,"productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775125125685', 'vente', 11500, 'Facture INV-26-0014', 'MOHAMMED HAY MOHAMADI', '2026-04-02', 'Chèque', 'confirmé', '[{"totalHT":4416.666666666667,"unitPriceHT":2208.3333333333335,"sku":"SIVIR","quantity":2,"productName":"SV09IAC"},{"productName":"SV12IAC","unitPriceHT":2583.3333333333335,"totalHT":5166.666666666667,"sku":"SIVIR","quantity":2}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775134176621', 'vente', 5600, 'Facture INV-26-0017', 'ALI TP CL', '2026-04-02', 'Chèque', 'annulé', '[{"quantity":1,"totalHT":2166.666666666667,"sku":"SIVIR","unitPriceHT":2166.666666666667,"productName":"SV09IAC"},{"productName":"SV12IAC","quantity":1,"totalHT":2500,"unitPriceHT":2500,"sku":"SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775145109770', 'vente', 172500, 'Facture INV-26-0018', 'MTM KECH', '2026-04-02', 'Chèque', 'en_attente', '[{"productName":"SV09IAC","sku":"SIVIR","unitPriceHT":2208.3333333333335,"totalHT":66250,"quantity":30},{"productName":"SV12IAC","totalHT":77500,"unitPriceHT":2583.3333333333335,"sku":"SIVIR","quantity":30}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775145303066', 'vente', 14200, 'Facture INV-26-0019', 'MY ELECTRO', '2026-04-02', 'Chèque', 'confirmé', '[{"productName":"SV09IAC","unitPriceHT":2166.666666666667,"totalHT":4333.333333333334,"sku":"SIVIR","quantity":2},{"quantity":3,"unitPriceHT":2500,"totalHT":7500,"sku":"SIVIR","productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775145885675', 'vente', 28750.000000000004, 'Facture INV-26-0015', 'ABOUDRAR', '2026-04-02', 'Chèque', 'confirmé', '[{"totalHT":11041.666666666668,"sku":"SIVIR","unitPriceHT":2208.3333333333335,"quantity":5,"productName":"SV09IAC"},{"sku":"SIVIR","totalHT":12916.666666666668,"unitPriceHT":2583.3333333333335,"quantity":5,"productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775207944293', 'vente', 84500, 'Facture INV-26-0020', 'ELECTRO BELAID', '2026-04-03', 'Chèque', 'confirmé', '[{"productName":"SV09IAC","sku":"SIVIR","totalHT":26500,"unitPriceHT":2208.3333333333335,"quantity":12},{"productName":"SV12IAC","totalHT":43916.66666666667,"unitPriceHT":2583.3333333333335,"sku":"SIVIR","quantity":17}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775208112768', 'vente', 96450, 'Facture INV-26-0021', 'ELECTRO JIHADIA', '2026-04-03', 'Chèque', 'confirmé', '[{"unitPriceHT":2208.3333333333335,"totalHT":28708.333333333336,"sku":"SIVIR","quantity":13,"productName":"SV09IAC"},{"quantity":20,"sku":"SIVIR","unitPriceHT":2583.3333333333335,"totalHT":51666.66666666667,"productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775208202586', 'vente', 115000.00000000001, 'Facture INV-26-0022', 'ABOUDRAR', '2026-04-03', 'Chèque', 'confirmé', '[{"quantity":20,"unitPriceHT":2208.3333333333335,"sku":"SIVIR","totalHT":44166.66666666667,"productName":"SV09IAC"},{"unitPriceHT":2583.3333333333335,"sku":"SIVIR","totalHT":51666.66666666667,"quantity":20,"productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775398232455', 'vente', 86250, 'Facture INV-26-0023', 'OMAR YOUSSFI', '2026-04-06', 'Chèque', 'en_attente', '[{"productName":"SV09IAC","quantity":15,"sku":"SIVIR","unitPriceHT":2208.3333333333335,"totalHT":33125},{"productName":"SV12IAC","sku":"SIVIR","unitPriceHT":2583.3333333333335,"totalHT":38750,"quantity":15}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775470635901', 'vente', 28750.000000000004, 'Facture INV-26-0026', 'ELECTRO BENABOUD', '2026-04-06', 'Chèque', 'confirmé', '[{"quantity":5,"sku":"SIVIR","unitPriceHT":2208.3333333333335,"totalHT":11041.666666666668,"productName":"SV09IAC"},{"productName":"SV12IAC","quantity":5,"totalHT":12916.666666666668,"unitPriceHT":2583.3333333333335,"sku":"SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775859340903', 'vente', 275000, 'Facture INV-26-0035', 'JAWAD', '2026-04-06', 'Chèque', 'confirmé', '[{"unitPriceHT":2125,"sku":"SIVIR","totalHT":106250,"quantity":50,"productName":"SV09IAC"},{"productName":"SV12IAC","sku":"SIVIR","totalHT":122916.66666666667,"unitPriceHT":2458.3333333333335,"quantity":50}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775862839855', 'vente', 87100.00000000001, 'Facture INV-26-0024', 'AWANI RACHID', '2026-04-06', 'Chèque', 'confirmé', '[{"productName":"SV09IAC","quantity":20,"totalHT":44166.66666666667,"sku":"SIVIR","unitPriceHT":2208.3333333333335},{"productName":"SV12IAC","quantity":11,"sku":"SIVIR","totalHT":28416.666666666668,"unitPriceHT":2583.3333333333335}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775564304528', 'vente', 287500, 'Facture INV-26-0029', 'SAID', '2026-04-07', 'Chèque', 'en_attente', '[{"unitPriceHT":2208.3333333333335,"sku":"SIVIR","totalHT":110416.66666666667,"quantity":50,"productName":"SV09IAC"},{"productName":"SV12IAC","totalHT":129166.66666666667,"unitPriceHT":2583.3333333333335,"sku":"SIVIR","quantity":50}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775564401594', 'vente', 104000, 'Facture INV-26-0028', 'DISTRONIC', '2026-04-07', 'Chèque', 'confirmé', '[{"totalHT":22083.333333333336,"sku":"SIVIR","unitPriceHT":2208.3333333333335,"quantity":10,"productName":"SV09IAC"},{"productName":"SV12IAC","quantity":25,"totalHT":64583.333333333336,"unitPriceHT":2583.3333333333335,"sku":"SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775564708179', 'vente', 28750.000000000004, 'Facture INV-26-0030', 'MLY AHMED', '2026-04-07', 'Chèque', 'annulé', '[{"productName":"SV09IAC","quantity":5,"unitPriceHT":2208.3333333333335,"sku":"SIVIR","totalHT":11041.666666666668},{"productName":"SV12IAC","quantity":5,"unitPriceHT":2583.3333333333335,"sku":"SIVIR","totalHT":12916.666666666668}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775564959906', 'vente', 88500, 'Facture INV-26-0031', 'ZOUINE', '2026-04-07', 'Chèque', 'en_attente', '[{"productName":"SV09IAC","quantity":10,"sku":"SIVIR","totalHT":22083.333333333336,"unitPriceHT":2208.3333333333335},{"quantity":20,"sku":"SIVIR","unitPriceHT":2583.3333333333335,"totalHT":51666.66666666667,"productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775566716492', 'vente', 57500.00000000001, 'Facture INV-26-0032', 'TCHRI ELECTRO', '2026-04-07', 'Virement', 'confirmé', '[{"productName":"SV09IAC","unitPriceHT":2208.3333333333335,"sku":"SIVIR","totalHT":22083.333333333336,"quantity":10},{"quantity":10,"unitPriceHT":2583.3333333333335,"sku":"SIVIR","totalHT":25833.333333333336,"productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775722070181', 'vente', 6200, 'Facture INV-26-0033', 'MOUHCINE DEPOT', '2026-04-09', 'Chèque', 'annulé', '[{"quantity":2,"totalHT":5166.666666666667,"unitPriceHT":2583.3333333333335,"sku":"SIVIR","productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775815970608', 'vente', 75780, 'Facture INV-26-0034', 'ESPACE STEEL', '2026-04-10', 'Chèque', 'annulé', '[{"unitPriceHT":2105,"sku":"SIVIR","totalHT":63150,"quantity":30,"productName":"SV09IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775861502709', 'vente', 14400, 'Facture INV-26-0039', 'BARAKATE ALQODS', '2026-04-11', 'Chèque', 'confirmé', '[{"quantity":3,"totalHT":5625,"sku":"SIVIR","unitPriceHT":1875,"productName":"SV7900WF SIVIR"},{"productName":"SV8900WF SIVIR","quantity":3,"totalHT":6375,"unitPriceHT":2125,"sku":"SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775861680493', 'vente', 27150, 'Facture INV-26-0040', 'ADIL DEROUA', '2026-04-11', 'Chèque', 'confirmé', '[{"sku":"SIVIR","unitPriceHT":1875,"totalHT":5625,"quantity":3,"productName":"SV7900WF SIVIR"},{"sku":"SIVIR","totalHT":17000,"unitPriceHT":2125,"quantity":8,"productName":"SV8900WF SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1775861747006', 'vente', 9600, 'Facture INV-26-0041', 'MOHAMMED HAY MOHAMADI', '2026-04-11', 'Chèque', 'confirmé', '[{"productName":"SV7900WF SIVIR","unitPriceHT":1875,"totalHT":3750,"sku":"SIVIR","quantity":2},{"productName":"SV8900WF SIVIR","quantity":2,"totalHT":4250,"unitPriceHT":2125,"sku":"SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776528308162', 'vente', 85500, 'Facture INV-26-0053', 'PRO NEGOCE', '2026-04-11', 'Chèque', 'confirmé', '[{"productName":"SV7900WF SIVIR","quantity":10,"unitPriceHT":1833.3333333333335,"totalHT":18333.333333333336,"sku":"SIVIR"},{"productName":"SV8900WF SIVIR","quantity":10,"totalHT":20416.666666666668,"unitPriceHT":2041.6666666666667,"sku":"SIVIR"},{"productName":"SV09IAC","totalHT":32500.000000000004,"unitPriceHT":2166.666666666667,"sku":"SIVIR","quantity":15}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776072694744', 'vente', 29400, 'Facture INV-26-0038', 'MOUKHTAR RIAD OULFA', '2026-04-13', 'Chèque', 'confirmé', '[{"productName":"SV7900WF SIVIR","totalHT":11500,"sku":"SIVIR","unitPriceHT":1916.6666666666667,"quantity":6},{"productName":"SV8900WF SIVIR","totalHT":13000.000000000002,"sku":"SIVIR","unitPriceHT":2166.666666666667,"quantity":6}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776093031934', 'vente', 310500, 'Facture INV-26-0042', 'MTM KECH', '2026-04-13', 'Chèque', 'en_attente', '[{"sku":"SIVIR","unitPriceHT":1875,"totalHT":131250,"quantity":70,"productName":"SV7900WF SIVIR"},{"unitPriceHT":2125,"sku":"SIVIR","totalHT":127500,"quantity":60,"productName":"SV8900WF SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776093140380', 'vente', 224000.00000000003, 'Facture INV-26-0043', 'JAWAD', '2026-04-13', 'Chèque', 'en_attente', '[{"quantity":60,"unitPriceHT":1750,"totalHT":105000,"sku":"SIVIR","productName":"SV7900WF SIVIR"},{"productName":"SV8900WF SIVIR","quantity":40,"totalHT":81666.66666666667,"unitPriceHT":2041.6666666666667,"sku":"SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776093194929', 'vente', 22700, 'Facture INV-26-0044', 'MY ELECTRO', '2026-04-13', 'Chèque', 'confirmé', '[{"quantity":6,"sku":"SIVIR","totalHT":10750,"unitPriceHT":1791.6666666666667,"productName":"SV7900WF SIVIR"},{"productName":"SV8900WF SIVIR","unitPriceHT":2041.6666666666667,"sku":"SIVIR","totalHT":8166.666666666667,"quantity":4}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776093322061', 'vente', 3000, 'Facture INV-26-0045', 'MY ELECTRO', '2026-04-13', 'Chèque', 'confirmé', '[{"quantity":2,"sku":"SIVIR","totalHT":2500,"unitPriceHT":1250,"productName":"ST43X"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776531701280', 'vente', 81800, 'Facture INV-26-0054', 'EASY PROJET', '2026-04-13', 'Chèque', 'confirmé', '[{"productName":"SV8900WF SIVIR","unitPriceHT":2125,"totalHT":12750,"sku":"SIVIR","quantity":6},{"productName":"SV7900WF SIVIR","sku":"SIVIR","unitPriceHT":1500,"totalHT":7500,"quantity":5},{"productName":"SV09IAC","quantity":10,"totalHT":22083.333333333336,"unitPriceHT":2208.3333333333335,"sku":"SIVIR"},{"productName":"SV12IAC","totalHT":25833.333333333336,"unitPriceHT":2583.3333333333335,"sku":"SIVIR","quantity":10}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776532656765', 'vente', 13950, 'Facture INV-26-0046', 'TCHRI ELECTRO', '2026-04-13', 'Chèque', 'confirmé', '[{"sku":"SIVIR","unitPriceHT":1833.3333333333335,"totalHT":5500,"quantity":3,"productName":"SV7900WF SIVIR"},{"productName":"SV8900WF SIVIR","sku":"SIVIR","totalHT":6125,"unitPriceHT":2041.6666666666667,"quantity":3}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776352046475', 'vente', 20400, 'Facture INV-26-0047', 'ROCKCLIM', '2026-04-16', 'Chèque', 'confirmé', '[{"productName":"SV09IAC","quantity":8,"totalHT":17000,"unitPriceHT":2125,"sku":"SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776425009387', 'vente', 41200, 'Facture INV-26-0049', 'LMKANSSA', '2026-04-17', 'Chèque', 'confirmé', '[{"totalHT":19166.666666666668,"sku":"SIVIR","unitPriceHT":1916.6666666666667,"quantity":10,"productName":"SV7900WF SIVIR"},{"productName":"SV8900WF SIVIR","unitPriceHT":2166.666666666667,"sku":"SIVIR","totalHT":15166.666666666668,"quantity":7}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776432682386', 'vente', 11600.000000000002, 'Facture INV-26-0050', 'ADZ CONSTRUCTIONS', '2026-04-17', 'Chèque', 'confirmé', '[{"quantity":2,"sku":"SIVIR","totalHT":4500,"unitPriceHT":2250,"productName":"SV09IAC"},{"productName":"SV12IAC","unitPriceHT":2583.3333333333335,"totalHT":5166.666666666667,"sku":"SIVIR","quantity":2}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776432862238', 'vente', 121600, 'Facture INV-26-0051', 'TAMSSAMANI', '2026-04-17', 'Chèque', 'en_attente', '[{"unitPriceHT":1833.3333333333335,"totalHT":51333.333333333336,"sku":"SIVIR","quantity":28,"productName":"SV7900WF SIVIR"},{"quantity":25,"totalHT":50000,"unitPriceHT":2000,"sku":"SIVIR","productName":"SV8900WF SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776511802529', 'vente', 19600.000000000004, 'Facture INV-26-0052', 'HMED', '2026-04-18', 'Chèque', 'en_attente', '[{"productName":"SV7900WF SIVIR","quantity":4,"sku":"SIVIR","totalHT":7666.666666666667,"unitPriceHT":1916.6666666666667},{"productName":"SV8900WF SIVIR","quantity":4,"unitPriceHT":2166.666666666667,"totalHT":8666.666666666668,"sku":"SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776535776953', 'vente', 34786, 'Facture INV-26-0055', 'TARIK TP CL', '2026-04-18', 'Chèque', 'confirmé', '[{"productName":"TESTE","quantity":1,"totalHT":28988.333333333336,"unitPriceHT":28988.333333333336,"sku":"CL"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1776684164668', 'vente', 119000.00000000001, 'Facture INV-26-0056', 'AMSAK', '2026-04-20', 'Chèque', 'en_attente', '[{"productName":"SV09IAC","totalHT":45833.33333333334,"unitPriceHT":2291.666666666667,"sku":"SIVIR","quantity":20},{"quantity":20,"unitPriceHT":2666.666666666667,"totalHT":53333.33333333334,"sku":"SIVIR","productName":"SV12IAC"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1777285784270', 'vente', 162800.00000000003, 'Facture INV-26-0058', 'ABOUDRAR', '2026-04-27', 'Chèque', 'en_attente', '[{"sku":"SIVIR","totalHT":69666.66666666667,"unitPriceHT":1833.3333333333335,"quantity":38,"productName":"SV7900WF SIVIR"},{"quantity":33,"unitPriceHT":2000,"sku":"SIVIR","totalHT":66000,"productName":"SV8900WF SIVIR"}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1777459783978', 'vente', 54600, 'Facture INV-26-0059', 'BRAHIM OULFA', '2026-04-29', 'Chèque', 'confirmé', '[{"productName":"SV7900WF SIVIR","sku":"SIVIR","totalHT":22000,"unitPriceHT":1833.3333333333335,"quantity":12},{"productName":"SV8900WF SIVIR","totalHT":23500,"sku":"SIVIR","unitPriceHT":1958.3333333333335,"quantity":12}]') on conflict (id) do nothing;
+insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1777979995340', 'vente', 35300, 'Facture INV-26-0060', 'MOHAMMED HOUCEIMA', '2026-05-05', 'Chèque', 'en_attente', '[{"productName":"SV7900WF SIVIR","quantity":10,"totalHT":17916.666666666668,"sku":"SIVIR","unitPriceHT":1791.6666666666667},{"productName":"SV8900WF SIVIR","totalHT":11500,"unitPriceHT":1916.6666666666667,"sku":"SIVIR","quantity":6}]') on conflict (id) do nothing;
