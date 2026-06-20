@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockPartners, mockStock } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, Download, Upload, Eye, Pencil, FileText, Trash2, X, History, MapPin } from 'lucide-react';
+import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, Download, Upload, Eye, Pencil, FileText, Trash2, X, History, MapPin, RotateCcw, Box } from 'lucide-react';
 
 export default function EntreesVentes({ initialTab = 'entrees' }) {
   const [transactions, setTransactions] = useState([]);
@@ -16,7 +16,11 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
   const [expandedRows, setExpandedRows] = useState({});
   const [usingMockData, setUsingMockData] = useState(false);
 
-  // Nouvel Arrivage Form States
+  // Date Filters for Sales History
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Nouvel Arrivage Form States (Entrées)
   const [receptionDate, setReceptionDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedFournisseur, setSelectedFournisseur] = useState('');
   const [addedItems, setAddedItems] = useState([]);
@@ -24,21 +28,21 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
   const [itemQuantity, setItemQuantity] = useState('1');
   const [itemUnitPriceTTC, setItemUnitPriceTTC] = useState('');
 
-  // Nouvelle Avance Form States
+  // Nouvelle Avance Form States (Entrées)
   const [avanceDate, setAvanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [avanceFournisseur, setAvanceFournisseur] = useState('');
   const [avanceAmount, setAvanceAmount] = useState('');
   const [avanceMethod, setAvanceMethod] = useState('Virement');
 
-  // Vente Quick Add Form States (for Ventes Tab)
-  const [showVenteModal, setShowVenteModal] = useState(false);
+  // Nouvelle Vente Form States (Ventes)
+  const [venteClient, setVenteClient] = useState('');
   const [venteDate, setVenteDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedClient, setSelectedClient] = useState('');
+  const [venteReglement, setVenteReglement] = useState('Espèces');
   const [venteItems, setVenteItems] = useState([]);
   const [venteProductId, setVenteProductId] = useState('');
+  const [venteStockType, setVenteStockType] = useState('Neuf'); // 'Neuf' | 'Déclassé'
   const [venteQty, setVenteQty] = useState('1');
   const [ventePriceTTC, setVentePriceTTC] = useState('');
-  const [venteMethod, setVenteMethod] = useState('Chèque');
 
   const fetchData = async () => {
     try {
@@ -52,10 +56,10 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
 
       if (txError) throw new Error('DB tables missing');
 
-      // Fetch Partners (Suppliers and Clients)
+      // Fetch Partners
       const { data: pData } = await supabase.from('partners').select('*');
       
-      // Fetch Stock items
+      // Fetch Stock
       const { data: sData } = await supabase.from('stock').select('*').order('name', { ascending: true });
 
       setTransactions(txData || []);
@@ -103,7 +107,20 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
     return match ? match[0] : (description.replace('Entrée ', '').replace('Facture ', '').split(' - ')[0] || description);
   };
 
-  // Add Item to current arrivage
+  // Helper to convert invoice reference to BL reference
+  const getBLReference = (description) => {
+    if (!description) return 'BL-26-XXXX';
+    const ref = getBCReference(description);
+    return ref.replace('INV-', 'BL-').replace('BC-', 'BL-').replace('Facture ', 'BL-');
+  };
+
+  // Reset date range filters
+  const handleResetFilters = () => {
+    setStartDate('');
+    setEndDate('');
+  };
+
+  // Add Item to current arrivage (Entrées)
   const handleAddItemToArrivage = (e) => {
     e.preventDefault();
     if (!selectedProductId || !itemQuantity || !itemUnitPriceTTC) return;
@@ -120,7 +137,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       sku: prod.sku,
       quantity: qty,
       unitPriceTTC: priceTTC,
-      costPrice: priceTTC / 1.2 // Store as HT in transaction costPrice
+      costPrice: priceTTC / 1.2
     };
 
     setAddedItems([...addedItems, newItem]);
@@ -136,7 +153,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
     const supplier = fournisseurs.find(f => f.id === selectedFournisseur || f.name === selectedFournisseur);
     const supplierName = supplier ? supplier.name : selectedFournisseur;
 
-    // Auto-generate BC number
     const achatCount = transactions.filter(t => t.type === 'achat').length;
     const nextBcNum = 10 + achatCount;
     const bcRef = `BC-26-000${nextBcNum}`;
@@ -163,7 +179,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
     };
 
     if (usingMockData) {
-      // Update local quantities
       addedItems.forEach(item => {
         const prod = mockStock.find(s => s.id === item.productId);
         if (prod) prod.quantity = (prod.quantity || 0) + item.quantity;
@@ -171,14 +186,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       setTransactions([newTx, ...transactions]);
       alert(`Arrivage ${bcRef} validé avec succès (Mode Démo) !`);
     } else {
-      // Save in Supabase
       const { error } = await supabase.from('transactions').insert([newTx]);
       if (error) {
         alert("Erreur lors de l'insertion dans Supabase : " + error.message);
         return;
       }
 
-      // Update quantities
       for (const item of addedItems) {
         const { data: stockData } = await supabase.from('stock').select('quantity').eq('id', item.productId).single();
         if (stockData) {
@@ -190,7 +203,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       alert(`Arrivage ${bcRef} enregistré avec succès !`);
     }
 
-    // Reset form
     setSelectedFournisseur('');
     setAddedItems([]);
   };
@@ -235,7 +247,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
     setAvanceAmount('');
   };
 
-  // Add Item to quick sale (for Ventes subtab)
+  // Add Item to current sale (Ventes)
   const handleAddItemToVente = (e) => {
     e.preventDefault();
     if (!venteProductId || !venteQty || !ventePriceTTC) return;
@@ -250,6 +262,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       productId: prod.id,
       productName: prod.name,
       sku: prod.sku,
+      stockType: venteStockType, // 'Neuf' or 'Déclassé'
       quantity: qty,
       unitPriceHT: priceTTC / 1.2,
       totalHT: (priceTTC / 1.2) * qty,
@@ -263,12 +276,11 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
   };
 
   // Save Vente (Facture Client)
-  const handleSaveVente = async (e) => {
-    e.preventDefault();
-    if (!selectedClient || venteItems.length === 0) return;
+  const handleSaveVente = async () => {
+    if (!venteClient || venteItems.length === 0) return;
 
-    const client = clients.find(c => c.id === selectedClient || c.name === selectedClient);
-    const clientName = client ? client.name : selectedClient;
+    const client = clients.find(c => c.id === venteClient || c.name === venteClient);
+    const clientName = client ? client.name : venteClient;
 
     const venteCount = transactions.filter(t => t.type === 'vente').length;
     const invRef = `INV-26-000${venteCount + 10}`;
@@ -283,11 +295,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       description: `Facture ${invRef}`,
       partner_name: clientName,
       date: venteDate,
-      payment_method: venteMethod,
+      payment_method: venteReglement,
       status: 'confirmé',
       items: JSON.stringify(venteItems.map(item => ({
         productName: item.productName,
         sku: item.sku,
+        stockType: item.stockType,
         quantity: item.quantity,
         unitPriceHT: item.unitPriceHT,
         totalHT: item.totalHT
@@ -295,47 +308,53 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
     };
 
     if (usingMockData) {
-      // Update quantities
       venteItems.forEach(item => {
         const prod = mockStock.find(s => s.id === item.productId);
-        if (prod) prod.quantity = Math.max(0, (prod.quantity || 0) - item.quantity);
+        if (prod) {
+          if (item.stockType === 'Déclassé') {
+            prod.declassed_quantity = Math.max(0, (prod.declassed_quantity || 0) - item.quantity);
+          } else {
+            prod.quantity = Math.max(0, (prod.quantity || 0) - item.quantity);
+          }
+        }
       });
       setTransactions([newTx, ...transactions]);
       alert(`Vente ${invRef} validée avec succès (Mode Démo) !`);
     } else {
-      // Insert Vente
       const { error } = await supabase.from('transactions').insert([newTx]);
       if (error) {
         alert("Erreur lors de l'insertion dans Supabase : " + error.message);
         return;
       }
 
-      // Update quantities (decr stock)
       for (const item of venteItems) {
-        const { data: stockData } = await supabase.from('stock').select('quantity').eq('id', item.productId).single();
+        const { data: stockData } = await supabase.from('stock').select('quantity, declassed_quantity').eq('id', item.productId).single();
         if (stockData) {
-          const newQty = Math.max(0, (stockData.quantity || 0) - item.quantity);
-          await supabase.from('stock').update({ quantity: newQty }).eq('id', item.productId);
+          if (item.stockType === 'Déclassé') {
+            const newQty = Math.max(0, (stockData.declassed_quantity || 0) - item.quantity);
+            await supabase.from('stock').update({ declassed_quantity: newQty }).eq('id', item.productId);
+          } else {
+            const newQty = Math.max(0, (stockData.quantity || 0) - item.quantity);
+            await supabase.from('stock').update({ quantity: newQty }).eq('id', item.productId);
+          }
         }
       }
       fetchData();
       alert(`Vente ${invRef} enregistrée avec succès !`);
     }
 
-    // Reset Form & Close
-    setSelectedClient('');
+    setVenteClient('');
     setVenteItems([]);
-    setShowVenteModal(false);
   };
 
   const handleExportCSV = () => {
     const BOM = "\uFEFF";
     const headers = activeSubTab === 'entrees'
       ? ["Référence BC/Avance", "Date", "Fournisseur", "Montant TTC (DH)", "Méthode", "Statut"]
-      : ["Numéro Facture", "Date", "Client", "Montant TTC (DH)", "Méthode", "Statut"];
+      : ["Numéro BL", "Date", "Client", "Montant TTC (DH)", "Méthode", "Statut"];
 
     const rows = filteredTxs.map(t => [
-      getBCReference(t.description),
+      activeSubTab === 'entrees' ? getBCReference(t.description) : getBLReference(t.description),
       t.date,
       t.partner_name || '',
       t.amount,
@@ -368,8 +387,18 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
   });
 
   const filteredTxs = displayedTxs.filter(t => {
-    return t.description?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           (t.partner_name && t.partner_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = t.description?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (t.partner_name && t.partner_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    let matchesDate = true;
+    if (startDate) {
+      matchesDate = matchesDate && t.date >= startDate;
+    }
+    if (endDate) {
+      matchesDate = matchesDate && t.date <= endDate;
+    }
+    
+    return matchesSearch && matchesDate;
   });
 
   return (
@@ -378,15 +407,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       <div className="catalog-header">
         <div className="catalog-title-wrapper">
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ backgroundColor: '#dbeafe', color: '#2563eb', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Plus size={20} style={{ strokeWidth: 3 }} />
-            </div>
-            {activeSubTab === 'entrees' ? 'Arrivages & Achats' : 'Ventes & Factures'}
+            {activeSubTab === 'entrees' ? 'Arrivages & Achats' : 'Ventes & Livraisons'}
           </h1>
           <p className="catalog-subtitle">
             {activeSubTab === 'entrees' 
               ? 'Gérez vos réceptions et vos avances fournisseurs.' 
-              : 'Suivez les factures et les ventes clients.'}
+              : 'Gérez vos sorties de stock (Neuf & Déclassé) et BL.'}
           </p>
         </div>
         
@@ -395,7 +421,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
             <Download size={16} /> EXPORTER CSV
           </button>
 
-          {activeSubTab === 'entrees' ? (
+          {activeSubTab === 'entrees' && (
             /* Sub sub tab switcher for Arrivages (BC) vs Avances */
             <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
               <button 
@@ -439,10 +465,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 Avances
               </button>
             </div>
-          ) : (
-            <button className="btn btn-blue-action" onClick={() => setShowVenteModal(true)}>
-              <Plus size={16} /> NOUVELLE VENTE
-            </button>
           )}
         </div>
       </div>
@@ -456,7 +478,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
             
             <form onSubmit={handleAddItemToArrivage}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-                {/* Date Reception */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <span className="form-label" style={{ color: '#94a3b8' }}>DATE RÉCEPTION</span>
                   <input
@@ -468,7 +489,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                   />
                 </div>
 
-                {/* Fournisseur */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <span className="form-label" style={{ color: '#94a3b8' }}>FOURNISSEUR</span>
                   <select
@@ -485,7 +505,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                   </select>
                 </div>
 
-                {/* Dashed green upload button matching image */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <span className="form-label" style={{ color: '#10b981' }}>JUSTIFICATIF (IMAGE/PDF)</span>
                   <button 
@@ -513,7 +532,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 </div>
               </div>
 
-              {/* Items Entry row in light blue matching image */}
               <div style={{ backgroundColor: '#eff6ff', borderRadius: '16px', padding: '20px', display: 'grid', gridTemplateColumns: '3fr 1fr 1.5fr auto', gap: '16px', alignItems: 'flex-end', border: '1px solid #dbeafe' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>PRODUIT À STOCKER</span>
@@ -819,93 +837,300 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
         </div>
       )}
 
-      {/* RENDER FOR VENTES & FACTURES VIEW */}
+      {/* RENDER FOR VENTES & LIVRAISONS VIEW MATCHING SCREENSHOT */}
       {activeSubTab === 'ventes' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Sales Search and Summary Filter Row */}
-          <div className="catalog-filter-bar">
-            <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
-              <Search size={18} className="search-icon" style={{ color: '#94a3b8' }} />
-              <input
-                type="text"
-                placeholder="Rechercher par facture, client..."
-                className="form-input search-input-catalog"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+          {/* Card: Nouvelle Vente */}
+          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '24px' }}>Nouvelle Vente</h3>
             
-            <button 
-              className="btn btn-white" 
-              onClick={fetchData} 
-              title="Actualiser les données"
-              style={{ padding: '12px', borderRadius: '12px' }}
-            >
-              <RefreshCw size={16} />
-            </button>
+            <form onSubmit={handleAddItemToVente}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                {/* Client */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#94a3b8' }}>CLIENT</span>
+                  <select
+                    className="select-category-catalog"
+                    value={venteClient}
+                    onChange={(e) => setVenteClient(e.target.value)}
+                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                    required
+                  >
+                    <option value="">Sélectionner Client...</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date Document */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#94a3b8' }}>DATE DOCUMENT</span>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={venteDate}
+                    onChange={(e) => setVenteDate(e.target.value)}
+                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
+                  />
+                </div>
+
+                {/* Reglement */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#94a3b8' }}>RÈGLEMENT</span>
+                  <select
+                    className="select-category-catalog"
+                    value={venteReglement}
+                    onChange={(e) => setVenteReglement(e.target.value)}
+                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                  >
+                    <option value="Espèces">Espèces</option>
+                    <option value="Chèque">Chèque</option>
+                    <option value="Virement">Virement</option>
+                    <option value="Effet">Effet</option>
+                    <option value="Crédit">Crédit</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Blue Items entry row matching image */}
+              <div style={{ backgroundColor: '#eff6ff', borderRadius: '16px', padding: '20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: '16px', alignItems: 'flex-end', border: '1px solid #dbeafe' }}>
+                {/* Product */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>PRODUIT</span>
+                  <select
+                    className="select-category-catalog"
+                    value={venteProductId}
+                    onChange={(e) => setVenteProductId(e.target.value)}
+                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', width: '100%' }}
+                  >
+                    <option value="">Choisir...</option>
+                    {stockItems.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Stock Type (Neuf vs Declassé) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>STOCK</span>
+                  <select
+                    className="select-category-catalog"
+                    value={venteStockType}
+                    onChange={(e) => setVenteStockType(e.target.value)}
+                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', width: '100%' }}
+                  >
+                    <option value="Neuf">Neuf</option>
+                    <option value="Déclassé">Déclassé</option>
+                  </select>
+                </div>
+
+                {/* Quantity */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>QTÉ</span>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-input"
+                    value={venteQty}
+                    onChange={(e) => setVenteQty(e.target.value)}
+                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', textAlign: 'center', fontWeight: '700' }}
+                  />
+                </div>
+
+                {/* Sale Price TTC */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>PRIX VENTE TTC</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Montant"
+                    className="form-input"
+                    value={ventePriceTTC}
+                    onChange={(e) => setVentePriceTTC(e.target.value)}
+                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', fontWeight: '700' }}
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="btn btn-blue-action" 
+                  style={{ height: '46px', padding: '0 32px', borderRadius: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  AJOUTER
+                </button>
+              </div>
+            </form>
+
+            {/* List of currently added items in this sale */}
+            {venteItems.length > 0 && (
+              <div style={{ marginTop: '24px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
+                <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Composants de la vente en cours :</h4>
+                <div className="table-container">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontWeight: '700' }}>
+                        <th style={{ padding: '10px 8px' }}>SKU</th>
+                        <th style={{ padding: '10px 8px' }}>DÉSIGNATION</th>
+                        <th style={{ padding: '10px 8px' }}>TYPE STOCK</th>
+                        <th style={{ padding: '10px 8px' }}>QUANTITÉ</th>
+                        <th style={{ padding: '10px 8px' }}>P.U. TTC</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'right' }}>TOTAL TTC</th>
+                        <th style={{ padding: '10px 8px', width: '40px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {venteItems.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                          <td style={{ padding: '12px 8px', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
+                          <td style={{ padding: '12px 8px', fontWeight: '700', color: '#0f172a' }}>{item.productName}</td>
+                          <td style={{ padding: '12px 8px' }}>
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: '700', 
+                              padding: '2px 8px', 
+                              borderRadius: '4px',
+                              backgroundColor: item.stockType === 'Déclassé' ? '#fdf2f2' : '#f8fafc',
+                              color: item.stockType === 'Déclassé' ? '#ef4444' : '#64748b'
+                            }}>{item.stockType.toUpperCase()}</span>
+                          </td>
+                          <td style={{ padding: '12px 8px', fontWeight: '600' }}>{item.quantity}</td>
+                          <td style={{ padding: '12px 8px' }}>{formatCurrency(item.priceTTC)}</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{formatCurrency(item.quantity * item.priceTTC)}</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                            <button 
+                              type="button" 
+                              className="action-icon-btn delete" 
+                              onClick={() => setVenteItems(venteItems.filter((_, i) => i !== idx))}
+                              style={{ color: '#cbd5e1' }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', backgroundColor: '#f8fafc', padding: '16px 24px', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#475569' }}>
+                    TOTAL DU BON DE LIVRAISON : <span style={{ color: '#2563eb', fontSize: '20px', marginLeft: '8px' }}>{formatCurrency(venteItems.reduce((acc, item) => acc + (item.quantity * item.priceTTC), 0))}</span>
+                  </div>
+                  <button type="button" className="btn btn-blue-action" onClick={handleSaveVente} style={{ padding: '12px 28px', borderRadius: '12px' }}>
+                    VALIDER LA VENTE (BL)
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Sales List Table */}
-          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-            {loading ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500' }}>
-                Chargement des ventes...
+          {/* Card: Historique des Ventes */}
+          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '6px', borderRadius: '8px' }}>
+                  <History size={16} />
+                </div>
+                <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Historique des Ventes</h3>
               </div>
-            ) : filteredTxs.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500', fontStyle: 'italic' }}>
-                Aucune facture de vente trouvée.
+
+              {/* Date Filters matching image */}
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <span style={{ fontSize: '9px', fontWeight: '700', color: '#94a3b8' }}>DU</span>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <span style={{ fontSize: '9px', fontWeight: '700', color: '#94a3b8' }}>AU</span>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+                <button 
+                  onClick={handleResetFilters}
+                  className="btn btn-white"
+                  style={{ height: '36px', padding: '0 14px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', marginTop: '12px' }}
+                >
+                  <RotateCcw size={12} /> RÉINITIALISER
+                </button>
+              </div>
+            </div>
+
+            {filteredTxs.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                Aucune vente enregistrée dans cette période.
               </div>
             ) : (
               <div className="table-container">
-                <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table className="custom-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
                       <th style={{ width: '40px', borderBottom: '1px solid #f1f5f9' }}></th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>N° BL</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>NUMÉRO / RÉF</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>CLIENT</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT GLOBAL</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MÉTHODE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>STATUT</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'center' }}>CONTENU</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TOTAL TTC</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredTxs.map((tx) => {
                       const itemsList = parseItems(tx.items);
                       const isExpanded = expandedRows[tx.id];
-                      
+
                       return (
                         <React.Fragment key={tx.id}>
                           <tr style={{ cursor: 'pointer', borderBottom: '1px solid #f8fafc' }} onClick={() => toggleRow(tx.id)}>
                             <td>
                               {itemsList.length > 0 ? (
-                                isExpanded ? <ChevronUp size={16} style={{ color: '#94a3b8' }} /> : <ChevronDown size={16} style={{ color: '#94a3b8' }} />
+                                isExpanded ? <ChevronUp size={16} style={{ color: '#cbd5e1' }} /> : <ChevronDown size={16} style={{ color: '#cbd5e1' }} />
                               ) : null}
+                            </td>
+                            <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+                              {getBLReference(tx.description)}
                             </td>
                             <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
                               {tx.date}
-                            </td>
-                            <td style={{ padding: '20px 16px', fontWeight: '700', color: '#0f172a' }}>
-                              {getBCReference(tx.description)}
                             </td>
                             <td style={{ padding: '20px 16px' }}>
                               <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
                                 {tx.partner_name || 'N/A'}
                               </span>
                             </td>
-                            <td style={{ padding: '20px 16px', fontWeight: '800', color: '#10b981', fontSize: '15px' }}>
-                              +{formatCurrency(tx.amount)}
+                            <td style={{ padding: '20px 16px', textAlign: 'center' }}>
+                              <Box size={16} style={{ color: '#cbd5e1', margin: '0 auto' }} />
                             </td>
-                            <td style={{ padding: '20px 16px', fontWeight: '600', color: '#475569' }}>
-                              {tx.payment_method || 'Chèque'}
+                            <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
+                              {formatCurrency(tx.amount)}
                             </td>
                             <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                              <span className={`badge ${tx.status}`}>
-                                {tx.status === 'confirmé' ? 'payé' : (tx.status === 'en_attente' ? 'partiel' : tx.status)}
-                              </span>
+                              <div style={{ display: 'inline-flex', gap: '14px', color: '#cbd5e1' }}>
+                                <button className="action-icon-btn" style={{ color: '#2563eb' }} onClick={(e) => { e.stopPropagation(); toggleRow(tx.id); }} title="Voir details">
+                                  <Eye size={18} />
+                                </button>
+                                <button className="action-icon-btn" style={{ color: '#f59e0b' }} onClick={(e) => { e.stopPropagation(); alert("Edition du BL " + getBLReference(tx.description)); }} title="Modifier">
+                                  <Pencil size={16} />
+                                </button>
+                                <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={(e) => { e.stopPropagation(); alert("Impression du Bon de Livraison (BL) PDF pour " + getBLReference(tx.description)); }} title="BL PDF">
+                                  <FileText size={16} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
-                          
+
                           {/* Expanded items row */}
                           {isExpanded && itemsList.length > 0 && (
                             <tr>
@@ -917,6 +1142,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                                       <tr style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontWeight: '700' }}>
                                         <th style={{ padding: '8px 0' }}>SKU</th>
                                         <th>DÉSIGNATION</th>
+                                        <th>STOCK TYPE</th>
                                         <th>QUANTITÉ</th>
                                         <th>P.U. HT</th>
                                         <th style={{ textAlign: 'right' }}>TOTAL HT</th>
@@ -931,6 +1157,16 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                                           <tr key={idx} style={{ borderBottom: '1px solid #f8fafc', color: '#475569' }}>
                                             <td style={{ padding: '10px 0', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
                                             <td style={{ fontWeight: '700', color: '#0f172a' }}>{item.productName}</td>
+                                            <td>
+                                              <span style={{ 
+                                                fontSize: '9px', 
+                                                fontWeight: '700', 
+                                                padding: '1px 6px', 
+                                                borderRadius: '3px',
+                                                backgroundColor: item.stockType === 'Déclassé' ? '#fdf2f2' : '#f8fafc',
+                                                color: item.stockType === 'Déclassé' ? '#ef4444' : '#64748b'
+                                              }}>{(item.stockType || 'Neuf').toUpperCase()}</span>
+                                            </td>
                                             <td style={{ fontWeight: '600' }}>{qty}</td>
                                             <td>{formatCurrency(price)}</td>
                                             <td style={{ textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{formatCurrency(total)}</td>
@@ -950,151 +1186,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 </table>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* VENTE QUICK ADD MODAL (for Ventes Tab) */}
-      {showVenteModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ color: 'var(--text-primary)', width: '600px' }}>
-            <button className="modal-close" onClick={() => setShowVenteModal(false)}>
-              <X size={20} />
-            </button>
-            <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Créer une Nouvelle Vente</h3>
-            
-            <form onSubmit={handleAddItemToVente} style={{ marginBottom: '20px' }}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Date Vente</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={venteDate}
-                    onChange={(e) => setVenteDate(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Client</label>
-                  <select
-                    className="form-input"
-                    value={selectedClient}
-                    onChange={(e) => setSelectedClient(e.target.value)}
-                    required
-                  >
-                    <option value="">Choisir Client...</option>
-                    {clients.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Mode Paiement</label>
-                  <select
-                    className="form-input"
-                    value={venteMethod}
-                    onChange={(e) => setVenteMethod(e.target.value)}
-                  >
-                    <option value="Chèque">Chèque</option>
-                    <option value="Virement">Virement</option>
-                    <option value="Espèce">Espèce</option>
-                    <option value="Effet">Effet</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Add item fields */}
-              <div style={{ backgroundColor: '#f0fdf4', borderRadius: '12px', padding: '16px', border: '1px solid #bbf7d0', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '10px', alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ color: '#16a34a' }}>PRODUIT</label>
-                  <select
-                    className="form-input"
-                    value={venteProductId}
-                    onChange={(e) => setVenteProductId(e.target.value)}
-                    style={{ backgroundColor: '#fff', borderColor: '#86efac' }}
-                  >
-                    <option value="">Choisir...</option>
-                    {stockItems.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.sku}) - Stock: {p.quantity}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ color: '#16a34a' }}>QTÉ</label>
-                  <input
-                    type="number"
-                    min="1"
-                    className="form-input"
-                    value={venteQty}
-                    onChange={(e) => setVenteQty(e.target.value)}
-                    style={{ backgroundColor: '#fff', borderColor: '#86efac', textAlign: 'center' }}
-                  />
-                </div>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ color: '#16a34a' }}>P.U. TTC (DH)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    className="form-input"
-                    value={ventePriceTTC}
-                    onChange={(e) => setVentePriceTTC(e.target.value)}
-                    style={{ backgroundColor: '#fff', borderColor: '#86efac' }}
-                  />
-                </div>
-                <button type="submit" className="btn" style={{ backgroundColor: '#16a34a', color: '#fff', height: '38px', borderRadius: '8px' }}>
-                  Ajouter
-                </button>
-              </div>
-            </form>
-
-            {/* Added Vente Items */}
-            {venteItems.length > 0 && (
-              <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '20px', border: '1px solid #f1f5f9', borderRadius: '12px', padding: '12px' }}>
-                <table style={{ width: '100%', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9', textAlign: 'left' }}>
-                      <th>Produit</th>
-                      <th>Qté</th>
-                      <th>Prix TTC</th>
-                      <th style={{ textAlign: 'right' }}>Total TTC</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {venteItems.map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
-                        <td style={{ fontWeight: '600' }}>{item.productName}</td>
-                        <td>{item.quantity}</td>
-                        <td>{formatCurrency(item.priceTTC)}</td>
-                        <td style={{ textAlign: 'right', fontWeight: '700' }}>{formatCurrency(item.quantity * item.priceTTC)}</td>
-                        <td>
-                          <button type="button" className="action-icon-btn delete" onClick={() => setVenteItems(venteItems.filter((_, i) => i !== idx))}>
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
-              <div style={{ fontWeight: '700', fontSize: '14px' }}>
-                Total Vente: <span style={{ color: '#16a34a', fontSize: '18px' }}>{formatCurrency(venteItems.reduce((acc, item) => acc + (item.quantity * item.priceTTC), 0))}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowVenteModal(false)}>Annuler</button>
-                <button type="button" className="btn" style={{ backgroundColor: '#2563eb', color: '#fff' }} onClick={handleSaveVente} disabled={venteItems.length === 0}>
-                  Valider la Facture
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
