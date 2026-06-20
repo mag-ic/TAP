@@ -550,3 +550,335 @@
   color: var(--text-primary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
+
+/* Light-themed Inventory Catalog View Styles */
+.stock-page-container {
+  background-color: #f3f4f6;
+  margin: -32px;
+  padding: 32px;
+  min-height: calc(100vh - 70px);
+  color: #1f2937;
+}
+
+.catalog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+}
+
+.catalog-title-wrapper h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.catalog-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.catalog-header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-white {
+  background-color: #ffffff;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-white:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.btn-blue-action {
+  background-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.btn-blue-action:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* Filter Bar */
+.catalog-filter-bar {
+  background-color: #ffffff;
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  margin-bottom: 28px;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.search-input-catalog {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  padding: 12px 14px 12px 42px;
+  border-radius: 12px;
+}
+
+.search-input-catalog:focus {
+  background-color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.select-category-catalog {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 500;
+  outline: none;
+  min-width: 200px;
+}
+
+.select-category-catalog:focus {
+  border-color: #2563eb;
+}
+
+.sort-catalog-btn {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sort-catalog-btn:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.sort-catalog-btn.active {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+/* Grid layout */
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+/* Product Card */
+.product-card {
+  background-color: #ffffff;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+.product-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.product-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-card-actions {
+  display: flex;
+  gap: 12px;
+  color: #94a3b8;
+}
+
+.action-icon-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.action-icon-btn:hover {
+  color: #475569;
+}
+
+.action-icon-btn.delete:hover {
+  color: #ef4444;
+}
+
+/* Tags */
+.product-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tag-category {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tag-sku {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  background-color: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.product-card-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 24px;
+  line-height: 1.2;
+}
+
+.product-card-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: auto;
+}
+
+.price-section-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.price-label-catalog {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+}
+
+.price-value-catalog {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.stock-section-catalog {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.rupture-badge {
+  background-color: #fee2e2;
+  color: #ef4444;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.en-stock-badge {
+  background-color: #d1fae5;
+  color: #10b981;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.stock-pill-catalog {
+  width: 100%;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.stock-pill-label {
+  font-weight: 700;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.stock-pill-value {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.declassed-pill-catalog {
+  width: 100%;
+  background-color: #fdf2f2;
+  border: 1px solid #fee2e2;
+  border-radius: 10px;
+  padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #ef4444;
+}
+
+.declassed-pill-label {
+  font-weight: 700;
+  color: #ef4444;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.declassed-pill-value {
+  font-weight: 800;
+  color: #ef4444;
+}
+
