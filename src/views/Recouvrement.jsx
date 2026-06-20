@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { formatCurrency } from '../lib/format';
 import { CreditCard, Search, CheckCircle, RefreshCw, AlertCircle } from 'lucide-react';
 
 export default function Recouvrement() {
@@ -92,7 +93,7 @@ export default function Recouvrement() {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">Encours Client Total</span>
-            <span className="kpi-value">{totalUnpaid.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">{formatCurrency(totalUnpaid)}</span>
           </div>
         </div>
 
@@ -102,7 +103,7 @@ export default function Recouvrement() {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">Créances Échues (En retard)</span>
-            <span className="kpi-value">{totalOverdue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">{formatCurrency(totalOverdue)}</span>
           </div>
         </div>
       </div>
@@ -165,7 +166,7 @@ export default function Recouvrement() {
                         {new Date(debt.due_date).toLocaleDateString('fr-FR')} 
                         {isOverdue && ' (En retard)'}
                       </td>
-                      <td style={{ fontWeight: '600' }}>{Number(debt.amount).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
+                      <td style={{ fontWeight: '600' }}>{formatCurrency(debt.amount)}</td>
                       <td>
                         <span className={`badge ${debt.status}`}>
                           {debt.status}

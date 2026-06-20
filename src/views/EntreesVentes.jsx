@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions } from '../lib/mockData';
+import { formatCurrency } from '../lib/format';
 import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function EntreesVentes() {
@@ -109,7 +110,7 @@ export default function EntreesVentes() {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">{activeSubTab === 'entrees' ? 'Total Approvisionnements' : 'Total Factures Clients'}</span>
-            <span className="kpi-value">{sumAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">{formatCurrency(sumAmount)}</span>
           </div>
         </div>
       </div>
@@ -164,7 +165,7 @@ export default function EntreesVentes() {
                         <td style={{ fontWeight: '600' }}>{tx.description}</td>
                         <td>{tx.partner_name || '-'}</td>
                         <td style={{ fontWeight: '600', color: activeSubTab === 'entrees' ? 'var(--danger)' : 'var(--success)' }}>
-                          {activeSubTab === 'entrees' ? '-' : '+'} {Math.abs(tx.amount).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          {activeSubTab === 'entrees' ? '-' : '+'} {formatCurrency(Math.abs(tx.amount))}
                         </td>
                         <td>{tx.payment_method || 'Chèque'}</td>
                         <td>
@@ -199,8 +200,8 @@ export default function EntreesVentes() {
                                         <td style={{ padding: '8px 0', fontFamily: 'monospace' }}>{item.sku}</td>
                                         <td style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{item.productName}</td>
                                         <td>{qty}</td>
-                                        <td>{Number(price).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
-                                        <td style={{ textAlign: 'right', fontWeight: '600', color: 'var(--text-primary)' }}>{total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
+                                        <td>{formatCurrency(price)}</td>
+                                        <td style={{ textAlign: 'right', fontWeight: '600', color: 'var(--text-primary)' }}>{formatCurrency(total)}</td>
                                       </tr>
                                     );
                                   })}

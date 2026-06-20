@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockStock } from '../lib/mockData';
+import { formatCurrency } from '../lib/format';
 import { Plus, Search, Box, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export default function Stock() {
@@ -183,11 +184,11 @@ export default function Stock() {
                       <td style={{ fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
                       <td style={{ fontWeight: '500' }}>{item.name}</td>
                       <td>{item.category}</td>
-                      <td>{Number(item.unit_price).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
+                      <td>{formatCurrency(item.unit_price)}</td>
                       <td style={{ fontWeight: '600', color: isLow ? 'var(--danger)' : 'var(--text-primary)' }}>{item.quantity}</td>
                       <td style={{ fontWeight: '600', color: item.declassed_quantity > 0 ? 'var(--warning)' : 'var(--text-muted)' }}>{item.declassed_quantity || 0}</td>
                       <td>{item.min_quantity}</td>
-                      <td style={{ fontWeight: '600' }}>{value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
+                      <td style={{ fontWeight: '600' }}>{formatCurrency(value)}</td>
                       <td>
                         <span className={`badge ${isLow ? 'ouvert' : 'confirmé'}`}>
                           {isLow ? 'Alerte' : 'Ok'}

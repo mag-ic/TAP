@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions } from '../lib/mockData';
+import { formatCurrency } from '../lib/format';
 import { Calculator, BarChart2, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 
 export default function FinanceCompta() {
@@ -68,7 +69,7 @@ export default function FinanceCompta() {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">Produits (Revenus Encaissés)</span>
-            <span className="kpi-value">{totalRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">{formatCurrency(totalRevenue)}</span>
           </div>
         </div>
 
@@ -78,7 +79,7 @@ export default function FinanceCompta() {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">Charges (Dépenses Règlées)</span>
-            <span className="kpi-value">{totalExpense.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">{formatCurrency(totalExpense)}</span>
           </div>
         </div>
 
@@ -89,7 +90,7 @@ export default function FinanceCompta() {
           <div className="kpi-info">
             <span className="kpi-label">Résultat Net (Bénéfice)</span>
             <span className="kpi-value" style={{ color: netProfit >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-              {netProfit.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+              {formatCurrency(netProfit)}
             </span>
           </div>
         </div>
@@ -151,7 +152,7 @@ export default function FinanceCompta() {
                 <div style={{ fontWeight: '600', fontSize: '14px' }}>Classe 5 - Trésorerie</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Comptes Banques (512) & Caisse (53)</div>
               </div>
-              <div style={{ fontWeight: '600', color: 'var(--primary)' }}>{netProfit.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</div>
+              <div style={{ fontWeight: '600', color: 'var(--primary)' }}>{formatCurrency(netProfit)}</div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
@@ -159,7 +160,7 @@ export default function FinanceCompta() {
                 <div style={{ fontWeight: '600', fontSize: '14px' }}>Classe 6 - Charges</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Achats matières (601) & Services (62)</div>
               </div>
-              <div style={{ fontWeight: '600', color: 'var(--danger)' }}>{totalExpense.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</div>
+              <div style={{ fontWeight: '600', color: 'var(--danger)' }}>{formatCurrency(totalExpense)}</div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
@@ -167,7 +168,7 @@ export default function FinanceCompta() {
                 <div style={{ fontWeight: '600', fontSize: '14px' }}>Classe 7 - Produits</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Ventes de marchandises & Prestations (70)</div>
               </div>
-              <div style={{ fontWeight: '600', color: 'var(--success)' }}>{totalRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</div>
+              <div style={{ fontWeight: '600', color: 'var(--success)' }}>{formatCurrency(totalRevenue)}</div>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { formatCurrency } from '../lib/format';
 import { Plus, Search, Settings, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export default function SpareParts() {
@@ -165,8 +166,8 @@ export default function SpareParts() {
                       <td style={{ fontWeight: '500' }}>{part.name}</td>
                       <td>{part.category}</td>
                       <td style={{ fontWeight: '600', color: isLow ? 'var(--danger)' : 'var(--text-primary)' }}>{part.quantity} pcs</td>
-                      <td>{Number(part.unit_price).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
-                      <td style={{ fontWeight: '600' }}>{value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
+                      <td>{formatCurrency(part.unit_price)}</td>
+                      <td style={{ fontWeight: '600' }}>{formatCurrency(value)}</td>
                       <td>{part.min_quantity} pcs</td>
                       <td>
                         <span className={`badge ${isLow ? 'ouvert' : 'confirmé'}`}>

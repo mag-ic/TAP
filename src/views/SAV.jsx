@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockSavTickets } from '../lib/mockData';
+import { formatCurrency } from '../lib/format';
 import { ClipboardEdit, Search, Plus, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function SAV() {
@@ -205,7 +206,7 @@ export default function SAV() {
                     <td style={{ fontWeight: '500' }}>{ticket.equipment || ticket.product_name}</td>
                     <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{ticket.description}</td>
                     <td style={{ fontSize: '13px', color: 'var(--success)', fontWeight: '500' }}>{ticket.solution || '-'}</td>
-                    <td style={{ fontWeight: '600' }}>{Number(ticket.cost).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
+                    <td style={{ fontWeight: '600' }}>{formatCurrency(ticket.cost)}</td>
                     <td>{ticket.created_at ? new Date(ticket.created_at).toLocaleDateString('fr-FR') : '-'}</td>
                     <td>
                       <span className={`badge ${ticket.status}`}>

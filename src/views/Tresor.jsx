@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockPartners, mockCheques } from '../lib/mockData';
+import { formatCurrency } from '../lib/format';
 import { Plus, Search, Wallet, TrendingUp, TrendingDown, RefreshCw, FileText } from 'lucide-react';
 
 export default function Tresor() {
@@ -147,7 +148,7 @@ export default function Tresor() {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">Solde Trésorerie</span>
-            <span className="kpi-value">{currentSolde.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">{formatCurrency(currentSolde)}</span>
           </div>
         </div>
 
@@ -157,7 +158,7 @@ export default function Tresor() {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">Total Recettes</span>
-            <span className="kpi-value">+{totalInflow.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">+{formatCurrency(totalInflow)}</span>
           </div>
         </div>
 
@@ -167,7 +168,7 @@ export default function Tresor() {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">Total Décaissements</span>
-            <span className="kpi-value">-{totalOutflow.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">-{formatCurrency(totalOutflow)}</span>
           </div>
         </div>
       </div>
@@ -270,7 +271,7 @@ export default function Tresor() {
                       </span>
                     </td>
                     <td style={{ fontWeight: '600', color: (tx.type === 'vente' || tx.type === 'revenu') ? 'var(--success)' : 'var(--danger)' }}>
-                      {(tx.type === 'vente' || tx.type === 'revenu') ? '+' : '-'} {Math.abs(tx.amount).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      {(tx.type === 'vente' || tx.type === 'revenu') ? '+' : '-'} {formatCurrency(Math.abs(tx.amount))}
                     </td>
                     <td>
                       <span className={`badge ${tx.status}`}>
@@ -319,7 +320,7 @@ export default function Tresor() {
                         </span>
                       </td>
                       <td style={{ fontWeight: '600' }}>
-                        {chq.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        {formatCurrency(chq.amount)}
                       </td>
                       <td>
                         <span className={`badge ${chq.status}`}>

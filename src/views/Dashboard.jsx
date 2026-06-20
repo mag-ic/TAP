@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockStock, mockSavTickets } from '../lib/mockData';
+import { formatCurrency } from '../lib/format';
 import { 
   TrendingUp, 
   Wallet, 
@@ -132,7 +133,7 @@ export default function Dashboard({ setActiveTab }) {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">Chiffre d'Affaires</span>
-            <span className="kpi-value">{metrics.sales.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">{formatCurrency(metrics.sales)}</span>
           </div>
         </div>
 
@@ -142,7 +143,7 @@ export default function Dashboard({ setActiveTab }) {
           </div>
           <div className="kpi-info">
             <span className="kpi-label">Solde Trésorerie</span>
-            <span className="kpi-value">{metrics.treasury.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            <span className="kpi-value">{formatCurrency(metrics.treasury)}</span>
           </div>
         </div>
 
@@ -203,7 +204,7 @@ export default function Dashboard({ setActiveTab }) {
                       </span>
                     </td>
                     <td style={{ fontWeight: '600', color: (tx.type === 'vente' || tx.type === 'revenu') ? 'var(--success)' : 'var(--danger)' }}>
-                      {(tx.type === 'vente' || tx.type === 'revenu') ? '+' : '-'} {Math.abs(tx.amount).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      {(tx.type === 'vente' || tx.type === 'revenu') ? '+' : '-'} {formatCurrency(Math.abs(tx.amount))}
                     </td>
                     <td>
                       <span className={`badge ${tx.status}`}>
