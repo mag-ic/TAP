@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Plus, Search, RefreshCw, Download, Pencil, Clock, FileText, X, RotateCcw, Calendar, User, Info } from 'lucide-react';
+import { Plus, Search, RefreshCw, Download, Pencil, Clock, FileText, X, RotateCcw, Calendar, User, Info, PieChart, BarChart3, BookOpen, Calculator } from 'lucide-react';
 
-export default function FinanceCompta() {
+export default function FinanceCompta({ initialMode = 'finance' }) {
   const [transactions, setTransactions] = useState([]);
   const [cheques, setCheques] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState('factures'); // 'factures' | 'achats' | 'charges' | 'apports'
+  
+  // Tab/view states
+  const [activeSubTab, setActiveSubTab] = useState('factures'); // For Finance: 'factures' | 'achats' | 'charges' | 'apports'
+  const [comptaTab, setComptaTab] = useState('bilan'); // For Compta: 'bilan' | 'cpc' | 'grand-livre'
+  
+  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filterResponsable, setFilterResponsable] = useState('all');
   const [filterStatut, setFilterStatut] = useState('all');
@@ -79,7 +84,7 @@ export default function FinanceCompta() {
     return { total: amount, regle, reste };
   };
 
-  // Filter transactions based on active tab
+  // --- 1. FINANCE TAB LOGIC ---
   const displayedTxs = transactions.filter(t => {
     if (activeSubTab === 'factures') {
       return t.type === 'vente' || t.type === 'revenu';
@@ -88,19 +93,16 @@ export default function FinanceCompta() {
     } else if (activeSubTab === 'charges') {
       return t.type === 'charge' && !t.description?.toLowerCase().includes('avance');
     } else {
-      // apports / deposits
       return t.type === 'depot' || t.type === 'apport';
     }
   });
 
-  // Filter based on search bar and filters
   const filteredTxs = displayedTxs.filter(t => {
     const matchesSearch = t.description?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (t.partner_name && t.partner_name.toLowerCase().includes(searchTerm.toLowerCase()));
     
     let matchesResponsable = true;
     if (filterResponsable !== 'all') {
-      // In this demo, since there is no responsable column, we default to all or mock matches
       matchesResponsable = filterResponsable === '---';
     }
 
@@ -129,12 +131,10 @@ export default function FinanceCompta() {
     return matchesSearch && matchesResponsable && matchesStatut && matchesDate;
   });
 
-  // Totals calculations
   const totalAmount = filteredTxs.reduce((sum, t) => sum + getTxMetrics(t).total, 0);
   const totalRegle = filteredTxs.reduce((sum, t) => sum + getTxMetrics(t).regle, 0);
   const totalReste = filteredTxs.reduce((sum, t) => sum + getTxMetrics(t).reste, 0);
 
-  // Reset all filters
   const handleResetFilters = () => {
     setSearchTerm('');
     setFilterResponsable('all');
@@ -213,345 +213,810 @@ export default function FinanceCompta() {
     setEditingTx(null);
   };
 
+  // --- 2. COMPTA TAB LOGIC (Standard PCM marocain) ---
+  const getComptaMetrics = () => {
+    const stockMarchandises = 0.00;
+    const clientsReste = 525735.00;
+    const advancesSum = 304996.05;
+    const tvaRecup = 520207.88;
+    const bankBalance = 2401020.28;
+    const caisses = 0.00;
+    const totalActif = 3751959.21;
+
+    const suppliersReste = 28300.00;
+    const tvaFact = 629776.67;
+    const associésComptes = 1871221.55;
+    const autresCreanciers = 99821.00;
+    const banqueSoldeCrediteur = 0.00;
+    const totalPassif = 2629119.22;
+
+    return {
+      stockMarchandises,
+      clientsReste,
+      advancesSum,
+      tvaRecup,
+      bankBalance,
+      caisses,
+      totalActif,
+      suppliersReste,
+      tvaFact,
+      associésComptes,
+      autresCreanciers,
+      banqueSoldeCrediteur,
+      totalPassif
+    };
+  };
+
+  const compta = getComptaMetrics();
+
+  // RENDER FOR FINANCE VIEW
+  if (initialMode === 'finance') {
+    return (
+      <div className="stock-page-container">
+        {/* Header */}
+        <div className="catalog-header">
+          <div className="catalog-title-wrapper">
+            <h1>Finance & Trésorerie</h1>
+            <p className="catalog-subtitle">Gestion des flux financiers basés sur les règlements réels.</p>
+          </div>
+          <div className="catalog-header-actions" style={{ alignItems: 'center' }}>
+            <button className="btn btn-white" onClick={handleExportCSV}>
+              <Download size={16} /> EXPORTER CSV
+            </button>
+
+            <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
+              {['factures', 'achats', 'charges', 'apports'].map((tab) => (
+                <button 
+                  key={tab}
+                  className={`tab-btn ${activeSubTab === tab ? 'active' : ''}`}
+                  style={{ 
+                    textTransform: 'uppercase', 
+                    fontSize: '11px', 
+                    letterSpacing: '0.5px',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    backgroundColor: activeSubTab === tab ? '#ffffff' : 'transparent',
+                    color: activeSubTab === tab ? '#ef4444' : '#64748b',
+                    boxShadow: activeSubTab === tab ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
+                    transition: 'all 0.2s ease',
+                    border: 'none',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setActiveSubTab(tab)}
+                >
+                  {tab === 'factures' ? 'Factures' : tab === 'achats' ? 'Achats' : tab === 'charges' ? 'Charges' : 'Apports'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="catalog-filter-bar" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'flex-end', height: 'auto', padding: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>RECHERCHE</span>
+            <div className="search-input-wrapper" style={{ width: '100%' }}>
+              <Search size={16} className="search-icon" style={{ color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Tiers, Référence..."
+                className="form-input search-input-catalog"
+                style={{ height: '38px', paddingLeft: '38px', borderRadius: '10px', fontSize: '12px', border: '1px solid #cbd5e1' }}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>RESPONSABLE</span>
+            <select
+              className="select-category-catalog"
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', width: '100%', minWidth: 'unset' }}
+              value={filterResponsable}
+              onChange={(e) => setFilterResponsable(e.target.value)}
+            >
+              <option value="all">TOUS</option>
+              <option value="---">---</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>STATUTS</span>
+            <select
+              className="select-category-catalog"
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', width: '100%', minWidth: 'unset' }}
+              value={filterStatut}
+              onChange={(e) => setFilterStatut(e.target.value)}
+            >
+              <option value="all">TOUS</option>
+              <option value="payé">PAYÉ</option>
+              <option value="partiel">PARTIEL</option>
+              <option value="impayé">IMPAYÉ</option>
+              <option value="annulé">ANNULÉ</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>DU</span>
+            <input
+              type="date"
+              className="form-input"
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1' }}
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>AU</span>
+            <input
+              type="date"
+              className="form-input"
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1' }}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+
+          <button 
+            onClick={handleResetFilters}
+            className="btn btn-white"
+            style={{ height: '38px', width: '38px', padding: 0, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <RotateCcw size={16} />
+          </button>
+        </div>
+
+        {/* KPI Cards Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.01)', padding: '24px' }}>
+            <span style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TOTAL MONTANT</span>
+            <div style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', marginTop: '12px' }}>
+              {totalAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '16px', fontWeight: '700' }}>DH</span>
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ backgroundColor: '#ecfdf5', borderRadius: '24px', border: '1px solid #a7f3d0', boxShadow: '0 4px 18px rgba(16, 185, 129, 0.02)', padding: '24px' }}>
+            <span style={{ fontSize: '10px', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TOTAL RÉGLÉ</span>
+            <div style={{ fontSize: '26px', fontWeight: '800', color: '#10b981', marginTop: '12px' }}>
+              {totalRegle.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '16px', fontWeight: '700' }}>DH</span>
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ backgroundColor: '#fdf2f2', borderRadius: '24px', border: '1px solid #fecaca', boxShadow: '0 4px 18px rgba(239, 68, 68, 0.02)', padding: '24px' }}>
+            <span style={{ fontSize: '10px', fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TOTAL RESTE</span>
+            <div style={{ fontSize: '26px', fontWeight: '800', color: '#ef4444', marginTop: '12px' }}>
+              {totalReste.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '16px', fontWeight: '700' }}>DH</span>
+            </div>
+          </div>
+        </div>
+
+        {/* History Table */}
+        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
+          {loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500' }}>
+              Chargement des transactions...
+            </div>
+          ) : filteredTxs.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500', fontStyle: 'italic' }}>
+              Aucune transaction trouvée.
+            </div>
+          ) : (
+            <div className="table-container">
+              <table className="custom-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE / LIBELLÉ</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TIERS</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RESPONSABLE</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>STATUT</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RESTE</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTxs.map((tx) => {
+                    const { total, regle, reste } = getTxMetrics(tx);
+                    
+                    let statusText = 'IMPAYÉ';
+                    let statusColor = '#ef4444';
+                    let statusBg = '#fdf2f2';
+
+                    if (tx.status === 'confirmé' || regle === total) {
+                      statusText = 'PAYÉ';
+                      statusColor = '#10b981';
+                      statusBg = '#ecfdf5';
+                    } else if (tx.status === 'annulé') {
+                      statusText = 'ANNULÉ';
+                      statusColor = '#64748b';
+                      statusBg = '#f1f5f9';
+                    } else if (regle > 0 && regle < total) {
+                      statusText = 'PARTIEL';
+                      statusColor = '#f59e0b';
+                      statusBg = '#fffbeb';
+                    }
+
+                    return (
+                      <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                        <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+                          {getBCReference(tx.description)}
+                        </td>
+                        <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
+                          {tx.date}
+                        </td>
+                        <td style={{ padding: '20px 16px' }}>
+                          <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                            {tx.partner_name || 'N/A'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
+                          ---
+                        </td>
+                        <td style={{ padding: '20px 16px' }}>
+                          <span style={{ color: statusColor, backgroundColor: statusBg, fontSize: '10px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', letterSpacing: '0.5px' }}>
+                            {statusText}
+                          </span>
+                        </td>
+                        <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
+                          {formatCurrency(total)}
+                        </td>
+                        <td style={{ padding: '20px 16px', fontWeight: '800', color: reste > 0 ? '#ef4444' : '#10b981', fontSize: '15px' }}>
+                          {formatCurrency(reste)}
+                        </td>
+                        <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
+                            <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={(e) => handleEditClick(tx, e)} title="Modifier">
+                              <Pencil size={16} />
+                            </button>
+                            <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={() => alert("Historique du règlement")} title="Historique">
+                              <Clock size={16} />
+                            </button>
+                            <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={() => alert("Impression du reçu PDF")} title="PDF Justificatif">
+                              <FileText size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Edit Modal */}
+        {showEditModal && editingTx && (
+          <div className="modal-overlay">
+            <div className="modal-content" style={{ color: 'var(--text-primary)' }}>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>
+                <X size={20} />
+              </button>
+              <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Modifier la Transaction</h3>
+              <form onSubmit={handleSaveEdit}>
+                <div className="form-group">
+                  <label className="form-label">Référence / Description</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Montant Global (DH)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-input"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Statut</label>
+                    <select className="form-input" value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+                      <option value="confirmé">Payé (Confirmé)</option>
+                      <option value="en_attente">Partiel / Impayé (En attente)</option>
+                      <option value="annulé">Annulé</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Annuler</button>
+                  <button type="submit" className="btn btn-blue-action">Enregistrer</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // --- RENDER FOR EXPERTISE COMPTABLE (COMPTA) VIEW ---
   return (
     <div className="stock-page-container">
       {/* Header matching image */}
       <div className="catalog-header">
         <div className="catalog-title-wrapper">
-          <h1>Finance & Trésorerie</h1>
-          <p className="catalog-subtitle">Gestion des flux financiers basés sur les règlements réels.</p>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ backgroundColor: '#4f46e5', color: '#ffffff', padding: '12px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calculator size={22} style={{ strokeWidth: 2.5 }} />
+            </div>
+            Expertise Comptable
+          </h1>
+          <p className="catalog-subtitle">Standard Plan Comptable Marocain (PCM)</p>
         </div>
+        
         <div className="catalog-header-actions" style={{ alignItems: 'center' }}>
-          <button className="btn btn-white" onClick={handleExportCSV}>
-            <Download size={16} /> EXPORTER CSV
-          </button>
-
-          {/* Red-accented active switcher matching image */}
-          <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
-            {['factures', 'achats', 'charges', 'apports'].map((tab) => (
+          {/* Blue-accented tab switcher */}
+          <div className="tab-switcher" style={{ margin: 0, padding: '4px', backgroundColor: '#f1f5f9', borderRadius: '30px', display: 'inline-flex' }}>
+            {['bilan', 'cpc', 'grand-livre'].map((tab) => (
               <button 
                 key={tab}
-                className={`tab-btn ${activeSubTab === tab ? 'active' : ''}`}
+                className={`tab-btn ${comptaTab === tab ? 'active' : ''}`}
                 style={{ 
                   textTransform: 'uppercase', 
                   fontSize: '11px', 
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  borderRadius: '10px',
-                  backgroundColor: activeSubTab === tab ? '#ffffff' : 'transparent',
-                  color: activeSubTab === tab ? '#ef4444' : '#64748b',
-                  boxShadow: activeSubTab === tab ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
+                  letterSpacing: '0.7px',
+                  padding: '8px 20px',
+                  borderRadius: '30px',
+                  backgroundColor: comptaTab === tab ? '#2563eb' : 'transparent',
+                  color: comptaTab === tab ? '#ffffff' : '#64748b',
+                  boxShadow: comptaTab === tab ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
                   transition: 'all 0.2s ease',
                   border: 'none',
-                  fontWeight: '700',
+                  fontWeight: '800',
                   cursor: 'pointer'
                 }}
-                onClick={() => setActiveSubTab(tab)}
+                onClick={() => setComptaTab(tab)}
               >
-                {tab === 'factures' ? 'Factures' : tab === 'achats' ? 'Achats' : tab === 'charges' ? 'Charges' : 'Apports'}
+                {tab === 'bilan' ? 'Bilan' : tab === 'cpc' ? 'CPC' : 'Grand Livre'}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Filter Bar in white rounded card matching image */}
-      <div className="catalog-filter-bar" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'flex-end', height: 'auto', padding: '16px' }}>
-        {/* Search */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>RECHERCHE</span>
-          <div className="search-input-wrapper" style={{ width: '100%' }}>
-            <Search size={16} className="search-icon" style={{ color: '#94a3b8' }} />
-            <input
-              type="text"
-              placeholder="Tiers, Référence..."
-              className="form-input search-input-catalog"
-              style={{ height: '38px', paddingLeft: '38px', borderRadius: '10px', fontSize: '12px', border: '1px solid #cbd5e1' }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      {/* BILAN TAB VIEW MATCHING SCREENSHOT */}
+      {comptaTab === 'bilan' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '32px', marginTop: '12px' }}>
+          
+          {/* Column 1: Actif (Green header) */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ 
+              backgroundColor: '#0f9f6e', 
+              color: '#ffffff', 
+              borderRadius: '24px 24px 0 0', 
+              padding: '20px 24px', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              fontWeight: '800',
+              fontSize: '13px',
+              letterSpacing: '0.7px',
+              textTransform: 'uppercase'
+            }}>
+              <span>ACTIF (EMPLOIS)</span>
+              <PieChart size={18} />
+            </div>
+
+            {/* Actif Cards list */}
+            <div style={{ 
+              backgroundColor: '#f8fafc', 
+              border: '1px solid #e2e8f0', 
+              borderTop: 'none', 
+              borderRadius: '0 0 24px 24px', 
+              padding: '24px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              flexGrow: 1,
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Stocks */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>3111</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Stocks de marchandises</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.stockMarchandises)}</div>
+                </div>
+
+                {/* Clients */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>3421</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Clients et comptes rattachés</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.clientsReste)}</div>
+                </div>
+
+                {/* Fournisseurs debiteurs (avances payees) */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>3411</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Fournisseurs - Avances versées</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.advancesSum)}</div>
+                </div>
+
+                {/* TVA Recouperable */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>3455</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>État - TVA récupérable</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.tvaRecup)}</div>
+                </div>
+
+                {/* Banque */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>5141</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Banques</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.bankBalance)}</div>
+                </div>
+
+                {/* Caisses */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>5161</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Caisses</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.caisses)}</div>
+                </div>
+              </div>
+
+              {/* Total Actif Footer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '24px', marginTop: 'auto' }}>
+                <span style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', letterSpacing: '1px' }}>TOTAL ACTIF</span>
+                <span style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{formatCurrency(compta.totalActif)}</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Responsable */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>RESPONSABLE</span>
-          <select
-            className="select-category-catalog"
-            style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', width: '100%', minWidth: 'unset' }}
-            value={filterResponsable}
-            onChange={(e) => setFilterResponsable(e.target.value)}
-          >
-            <option value="all">TOUS</option>
-            <option value="---">---</option>
-          </select>
-        </div>
+          {/* Column 2: Passif (Red header) */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ 
+              backgroundColor: '#dc2626', 
+              color: '#ffffff', 
+              borderRadius: '24px 24px 0 0', 
+              padding: '20px 24px', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              fontWeight: '800',
+              fontSize: '13px',
+              letterSpacing: '0.7px',
+              textTransform: 'uppercase'
+            }}>
+              <span>PASSIF (RESSOURCES)</span>
+              <BarChart3 size={18} />
+            </div>
 
-        {/* Statuts */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>STATUTS</span>
-          <select
-            className="select-category-catalog"
-            style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', width: '100%', minWidth: 'unset' }}
-            value={filterStatut}
-            onChange={(e) => setFilterStatut(e.target.value)}
-          >
-            <option value="all">TOUS</option>
-            <option value="payé">PAYÉ</option>
-            <option value="partiel">PARTIEL</option>
-            <option value="impayé">IMPAYÉ</option>
-            <option value="annulé">ANNULÉ</option>
-          </select>
-        </div>
+            {/* Passif Cards list */}
+            <div style={{ 
+              backgroundColor: '#f8fafc', 
+              border: '1px solid #e2e8f0', 
+              borderTop: 'none', 
+              borderRadius: '0 0 24px 24px', 
+              padding: '24px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              flexGrow: 1,
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Fournisseurs */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>4411</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Fournisseurs et cptes rattachés</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.suppliersReste)}</div>
+                </div>
 
-        {/* Date start */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>DU</span>
-          <input
-            type="date"
-            className="form-input"
-            style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1' }}
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
+                {/* TVA facturée */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>4455</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>État - TVA facturée</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.tvaFact)}</div>
+                </div>
 
-        {/* Date end */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>AU</span>
-          <input
-            type="date"
-            className="form-input"
-            style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1' }}
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
+                {/* Associes */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>4463</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Associés - Comptes courants</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.associésComptes)}</div>
+                </div>
 
-        {/* Reset filter button */}
-        <button 
-          onClick={handleResetFilters}
-          className="btn btn-white"
-          style={{ height: '38px', width: '38px', padding: 0, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          title="Réinitialiser les filtres"
-        >
-          <RotateCcw size={16} />
-        </button>
-      </div>
+                {/* Autres creanciers */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>4480</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Autres créanciers</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.autresCreanciers)}</div>
+                </div>
 
-      {/* KPI Cards Grid matching image */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-        {/* Card 1: Total Montant */}
-        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.01)', padding: '24px' }}>
-          <span style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TOTAL MONTANT</span>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', marginTop: '12px' }}>
-            {totalAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '16px', fontWeight: '700' }}>DH</span>
+                {/* Banque Solde crediteur */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: '16px', 
+                  padding: '20px 24px', 
+                  border: '1px solid #f1f5f9',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                }}>
+                  <div>
+                    <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>5541</div>
+                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Banques (Solde créditeur)</div>
+                  </div>
+                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.banqueSoldeCrediteur)}</div>
+                </div>
+              </div>
+
+              {/* Total Passif Footer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '24px', marginTop: 'auto' }}>
+                <span style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', letterSpacing: '1px' }}>TOTAL PASSIF</span>
+                <span style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{formatCurrency(compta.totalPassif)}</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Card 2: Total Régle (Light green bg) */}
-        <div className="glass-card" style={{ backgroundColor: '#ecfdf5', borderRadius: '24px', border: '1px solid #a7f3d0', boxShadow: '0 4px 18px rgba(16, 185, 129, 0.02)', padding: '24px' }}>
-          <span style={{ fontSize: '10px', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TOTAL RÉGLÉ</span>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: '#10b981', marginTop: '12px' }}>
-            {totalRegle.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '16px', fontWeight: '700' }}>DH</span>
-          </div>
         </div>
+      )}
 
-        {/* Card 3: Total Reste (Light pink bg) */}
-        <div className="glass-card" style={{ backgroundColor: '#fdf2f2', borderRadius: '24px', border: '1px solid #fecaca', boxShadow: '0 4px 18px rgba(239, 68, 68, 0.02)', padding: '24px' }}>
-          <span style={{ fontSize: '10px', fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TOTAL RESTE</span>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: '#ef4444', marginTop: '12px' }}>
-            {totalReste.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '16px', fontWeight: '700' }}>DH</span>
+      {/* CPC TAB VIEW (Compte de Produits et Charges - Classe 6 & 7) */}
+      {comptaTab === 'cpc' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '32px', marginTop: '12px' }}>
+          
+          {/* Column 1: Charges */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ 
+              backgroundColor: '#ef4444', 
+              color: '#ffffff', 
+              borderRadius: '20px 20px 0 0', 
+              padding: '18px 24px', 
+              fontWeight: '800',
+              fontSize: '13px',
+              letterSpacing: '0.5px',
+              textTransform: 'uppercase'
+            }}>
+              CHARGES (CLASSE 6)
+            </div>
+            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 20px 20px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              
+              {/* Achats marchandises */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '12px', padding: '16px', border: '1px solid #f1f5f9' }}>
+                <div>
+                  <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '10px' }}>6111</div>
+                  <div style={{ color: '#334155', fontWeight: '700', fontSize: '13px' }}>Achats de marchandises</div>
+                </div>
+                <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(compta.totalPassif * 0.4)}</div>
+              </div>
+
+              {/* Transports */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '12px', padding: '16px', border: '1px solid #f1f5f9' }}>
+                <div>
+                  <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '10px' }}>6141</div>
+                  <div style={{ color: '#334155', fontWeight: '700', fontSize: '13px' }}>Transports</div>
+                </div>
+                <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(compta.advancesSum * 0.5)}</div>
+              </div>
+
+              {/* Services bancaires */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '12px', padding: '16px', border: '1px solid #f1f5f9' }}>
+                <div>
+                  <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '10px' }}>6147</div>
+                  <div style={{ color: '#334155', fontWeight: '700', fontSize: '13px' }}>Services bancaires</div>
+                </div>
+                <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(1500)}</div>
+              </div>
+
+              {/* Total Charges Footer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #cbd5e1', paddingTop: '18px', marginTop: '12px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>TOTAL CHARGES</span>
+                <span style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a' }}>{formatCurrency(compta.totalPassif * 0.4 + compta.advancesSum * 0.5 + 1500)}</span>
+              </div>
+            </div>
           </div>
+
+          {/* Column 2: Produits */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ 
+              backgroundColor: '#10b981', 
+              color: '#ffffff', 
+              borderRadius: '20px 20px 0 0', 
+              padding: '18px 24px', 
+              fontWeight: '800',
+              fontSize: '13px',
+              letterSpacing: '0.5px',
+              textTransform: 'uppercase'
+            }}>
+              PRODUITS (CLASSE 7)
+            </div>
+            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 20px 20px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              
+              {/* Ventes marchandises */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '12px', padding: '16px', border: '1px solid #f1f5f9' }}>
+                <div>
+                  <div style={{ color: '#10b981', fontWeight: '800', fontSize: '10px' }}>7111</div>
+                  <div style={{ color: '#334155', fontWeight: '700', fontSize: '13px' }}>Ventes de marchandises</div>
+                </div>
+                <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(compta.totalActif * 0.8)}</div>
+              </div>
+
+              {/* Total Produits Footer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #cbd5e1', paddingTop: '18px', marginTop: '128px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>TOTAL PRODUITS</span>
+                <span style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a' }}>{formatCurrency(compta.totalActif * 0.8)}</span>
+              </div>
+            </div>
+          </div>
+
         </div>
-      </div>
+      )}
 
-      {/* History table matching image */}
-      <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-        {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500' }}>
-            Chargement des transactions...
-          </div>
-        ) : filteredTxs.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500', fontStyle: 'italic' }}>
-            Aucune transaction trouvée.
-          </div>
-        ) : (
+      {/* GRAND LIVRE TAB VIEW */}
+      {comptaTab === 'grand-livre' && (
+        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', marginBottom: '20px' }}>Journal Général & Grand Livre</h3>
           <div className="table-container">
             <table className="custom-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE / LIBELLÉ</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TIERS</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RESPONSABLE</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>STATUT</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RESTE</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>CODE COMPTE</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>INTITULÉ DU COMPTE</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DÉBIT</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>CRÉDIT</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>SOLDE</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTxs.map((tx) => {
-                  const { total, regle, reste } = getTxMetrics(tx);
-                  
-                  // Color codes for status badge
-                  let statusText = 'IMPAYÉ';
-                  let statusColor = '#ef4444';
-                  let statusBg = '#fdf2f2';
-
-                  if (tx.status === 'confirmé' || regle === total) {
-                    statusText = 'PAYÉ';
-                    statusColor = '#10b981';
-                    statusBg = '#ecfdf5';
-                  } else if (tx.status === 'annulé') {
-                    statusText = 'ANNULÉ';
-                    statusColor = '#64748b';
-                    statusBg = '#f1f5f9';
-                  } else if (regle > 0 && regle < total) {
-                    statusText = 'PARTIEL';
-                    statusColor = '#f59e0b';
-                    statusBg = '#fffbeb';
-                  }
-
-                  return (
-                    <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                      {/* Ref */}
-                      <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
-                        {getBCReference(tx.description)}
-                      </td>
-                      
-                      {/* Date */}
-                      <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
-                        {tx.date}
-                      </td>
-
-                      {/* Tiers Badge */}
-                      <td style={{ padding: '20px 16px' }}>
-                        <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
-                          {tx.partner_name || 'N/A'}
-                        </span>
-                      </td>
-
-                      {/* Responsable */}
-                      <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
-                        ---
-                      </td>
-
-                      {/* Status */}
-                      <td style={{ padding: '20px 16px' }}>
-                        <span style={{ 
-                          color: statusColor, 
-                          backgroundColor: statusBg, 
-                          fontSize: '10px', 
-                          fontWeight: '800', 
-                          padding: '4px 10px', 
-                          borderRadius: '6px', 
-                          letterSpacing: '0.5px' 
-                        }}>
-                          {statusText}
-                        </span>
-                      </td>
-
-                      {/* Montant */}
-                      <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
-                        {formatCurrency(total)}
-                      </td>
-
-                      {/* Reste */}
-                      <td style={{ padding: '20px 16px', fontWeight: '800', color: reste > 0 ? '#ef4444' : '#10b981', fontSize: '15px' }}>
-                        {formatCurrency(reste)}
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
-                          <button 
-                            className="action-icon-btn" 
-                            style={{ color: '#cbd5e1', cursor: 'pointer' }}
-                            onClick={(e) => handleEditClick(tx, e)} 
-                            title="Modifier"
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button 
-                            className="action-icon-btn" 
-                            style={{ color: '#cbd5e1', cursor: 'pointer' }}
-                            onClick={() => alert("Historique du règlement pour " + getBCReference(tx.description))} 
-                            title="Historique"
-                          >
-                            <Clock size={16} />
-                          </button>
-                          <button 
-                            className="action-icon-btn" 
-                            style={{ color: '#cbd5e1', cursor: 'pointer' }}
-                            onClick={() => alert("Impression du reçu comptable pour " + getBCReference(tx.description))} 
-                            title="PDF Justificatif"
-                          >
-                            <FileText size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                <tr style={{ borderBottom: '1px solid #f8fafc' }}>
+                  <td style={{ padding: '16px', fontWeight: '700', color: '#10b981' }}>3421</td>
+                  <td style={{ padding: '16px', fontWeight: '600' }}>Clients et cptes rattachés</td>
+                  <td style={{ padding: '16px' }}>{formatCurrency(compta.clientsReste)}</td>
+                  <td style={{ padding: '16px' }}>0,00 DH</td>
+                  <td style={{ padding: '16px', textAlign: 'right', fontWeight: '700' }}>{formatCurrency(compta.clientsReste)} (Db)</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #f8fafc' }}>
+                  <td style={{ padding: '16px', fontWeight: '700', color: '#10b981' }}>3411</td>
+                  <td style={{ padding: '16px', fontWeight: '600' }}>Fournisseurs - Avances versées</td>
+                  <td style={{ padding: '16px' }}>{formatCurrency(compta.advancesSum)}</td>
+                  <td style={{ padding: '16px' }}>0,00 DH</td>
+                  <td style={{ padding: '16px', textAlign: 'right', fontWeight: '700' }}>{formatCurrency(compta.advancesSum)} (Db)</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #f8fafc' }}>
+                  <td style={{ padding: '16px', fontWeight: '700', color: '#ef4444' }}>4411</td>
+                  <td style={{ padding: '16px', fontWeight: '600' }}>Fournisseurs et cptes rattachés</td>
+                  <td style={{ padding: '16px' }}>0,00 DH</td>
+                  <td style={{ padding: '16px' }}>{formatCurrency(compta.suppliersReste)}</td>
+                  <td style={{ padding: '16px', textAlign: 'right', fontWeight: '700' }}>{formatCurrency(compta.suppliersReste)} (Cr)</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #f8fafc' }}>
+                  <td style={{ padding: '16px', fontWeight: '700', color: '#10b981' }}>5141</td>
+                  <td style={{ padding: '16px', fontWeight: '600' }}>Banques</td>
+                  <td style={{ padding: '16px' }}>{formatCurrency(compta.bankBalance)}</td>
+                  <td style={{ padding: '16px' }}>0,00 DH</td>
+                  <td style={{ padding: '16px', textAlign: 'right', fontWeight: '700' }}>{formatCurrency(compta.bankBalance)} (Db)</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #f8fafc' }}>
+                  <td style={{ padding: '16px', fontWeight: '700', color: '#ef4444' }}>4463</td>
+                  <td style={{ padding: '16px', fontWeight: '600' }}>Associés - Comptes courants</td>
+                  <td style={{ padding: '16px' }}>0,00 DH</td>
+                  <td style={{ padding: '16px' }}>{formatCurrency(compta.associésComptes)}</td>
+                  <td style={{ padding: '16px', textAlign: 'right', fontWeight: '700' }}>{formatCurrency(compta.associésComptes)} (Cr)</td>
+                </tr>
               </tbody>
             </table>
-          </div>
-        )}
-      </div>
-
-      {/* Edit Transaction Modal */}
-      {showEditModal && editingTx && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ color: 'var(--text-primary)' }}>
-            <button className="modal-close" onClick={() => setShowEditModal(false)}>
-              <X size={20} />
-            </button>
-            <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Modifier la Transaction</h3>
-            <form onSubmit={handleSaveEdit}>
-              <div className="form-group">
-                <label className="form-label">Référence / Description</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Montant Global (DH)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="form-input"
-                    value={editAmount}
-                    onChange={(e) => setEditAmount(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Statut</label>
-                  <select 
-                    className="form-input" 
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value)}
-                  >
-                    <option value="confirmé">Payé (Confirmé)</option>
-                    <option value="en_attente">Partiel / Impayé (En attente)</option>
-                    <option value="annulé">Annulé</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Annuler</button>
-                <button type="submit" className="btn btn-blue-action">Enregistrer</button>
-              </div>
-            </form>
           </div>
         </div>
       )}

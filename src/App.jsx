@@ -31,8 +31,9 @@ export default function App() {
       case 'ventes':
         return <EntreesVentes initialTab="ventes" />;
       case 'finance':
+        return <FinanceCompta initialMode="finance" />;
       case 'compta':
-        return <FinanceCompta />;
+        return <FinanceCompta initialMode="compta" />;
       case 'recouvr':
         return <Recouvrement />;
       case 'sav':
