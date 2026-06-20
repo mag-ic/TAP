@@ -27,9 +27,9 @@ export default function App() {
       case 'partenaires':
         return <Partners />;
       case 'entrees':
+        return <EntreesVentes initialTab="entrees" />;
       case 'ventes':
-        // Both point to the same view, which adjusts internally
-        return <EntreesVentes />;
+        return <EntreesVentes initialTab="ventes" />;
       case 'finance':
       case 'compta':
         return <FinanceCompta />;

@@ -1,39 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { mockTransactions } from '../lib/mockData';
+import { mockTransactions, mockPartners, mockStock } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, Download, Upload, Eye, Pencil, FileText, Trash2, X, History, MapPin } from 'lucide-react';
 
-export default function EntreesVentes() {
+export default function EntreesVentes({ initialTab = 'entrees' }) {
   const [transactions, setTransactions] = useState([]);
+  const [fournisseurs, setFournisseurs] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [stockItems, setStockItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState('entrees'); // 'entrees' or 'ventes'
+  const [activeSubTab, setActiveSubTab] = useState(initialTab); // 'entrees' | 'ventes'
+  const [subSubTab, setSubSubTab] = useState('bc'); // 'bc' | 'avances' (only for entrees)
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRows, setExpandedRows] = useState({});
   const [usingMockData, setUsingMockData] = useState(false);
 
-  const fetchTransactions = async () => {
+  // Nouvel Arrivage Form States
+  const [receptionDate, setReceptionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedFournisseur, setSelectedFournisseur] = useState('');
+  const [addedItems, setAddedItems] = useState([]);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [itemQuantity, setItemQuantity] = useState('1');
+  const [itemUnitPriceTTC, setItemUnitPriceTTC] = useState('');
+
+  // Nouvelle Avance Form States
+  const [avanceDate, setAvanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [avanceFournisseur, setAvanceFournisseur] = useState('');
+  const [avanceAmount, setAvanceAmount] = useState('');
+  const [avanceMethod, setAvanceMethod] = useState('Virement');
+
+  // Vente Quick Add Form States (for Ventes Tab)
+  const [showVenteModal, setShowVenteModal] = useState(false);
+  const [venteDate, setVenteDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedClient, setSelectedClient] = useState('');
+  const [venteItems, setVenteItems] = useState([]);
+  const [venteProductId, setVenteProductId] = useState('');
+  const [venteQty, setVenteQty] = useState('1');
+  const [ventePriceTTC, setVentePriceTTC] = useState('');
+  const [venteMethod, setVenteMethod] = useState('Chèque');
+
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Fetch Transactions
+      const { data: txData, error: txError } = await supabase
         .from('transactions')
         .select('*')
         .order('date', { ascending: false });
 
-      if (error) throw new Error('DB tables missing');
+      if (txError) throw new Error('DB tables missing');
 
-      setTransactions(data || []);
+      // Fetch Partners (Suppliers and Clients)
+      const { data: pData } = await supabase.from('partners').select('*');
+      
+      // Fetch Stock items
+      const { data: sData } = await supabase.from('stock').select('*').order('name', { ascending: true });
+
+      setTransactions(txData || []);
+      setFournisseurs(pData?.filter(p => p.type === 'fournisseur') || []);
+      setClients(pData?.filter(p => p.type === 'client') || []);
+      setStockItems(sData || []);
       setUsingMockData(false);
     } catch (err) {
       setUsingMockData(true);
       setTransactions(mockTransactions);
+      setFournisseurs(mockPartners.filter(p => p.type === 'fournisseur'));
+      setClients(mockPartners.filter(p => p.type === 'client'));
+      setStockItems(mockStock);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTransactions();
+    fetchData();
   }, []);
 
   const toggleRow = (id) => {
@@ -43,24 +85,7 @@ export default function EntreesVentes() {
     }));
   };
 
-  // Filter based on subtab
-  const displayedTxs = transactions.filter(t => {
-    if (activeSubTab === 'entrees') {
-      return t.type === 'achat' || t.type === 'charge';
-    } else {
-      return t.type === 'vente' || t.type === 'revenu';
-    }
-  });
-
-  const filteredTxs = displayedTxs.filter(t => {
-    return t.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           (t.partner_name && t.partner_name.toLowerCase().includes(searchTerm.toLowerCase()));
-  });
-
-  // Totals
-  const sumAmount = filteredTxs.reduce((sum, t) => sum + Number(t.amount), 0);
-
-  // Helper to parse JSON items safely
+  // Safe parsing helper
   const parseItems = (itemsStr) => {
     if (!itemsStr) return [];
     try {
@@ -71,161 +96,1008 @@ export default function EntreesVentes() {
     }
   };
 
+  // Helper to extract BC/AR reference from description
+  const getBCReference = (description) => {
+    if (!description) return 'BC-26-XXXX';
+    const match = description.match(/(BC-\d+-\d+|BC\d+|AR-\d+-\d+|AR\d+|INV-\d+-\d+)/);
+    return match ? match[0] : (description.replace('Entrée ', '').replace('Facture ', '').split(' - ')[0] || description);
+  };
+
+  // Add Item to current arrivage
+  const handleAddItemToArrivage = (e) => {
+    e.preventDefault();
+    if (!selectedProductId || !itemQuantity || !itemUnitPriceTTC) return;
+
+    const prod = stockItems.find(s => s.id === selectedProductId);
+    if (!prod) return;
+
+    const qty = parseInt(itemQuantity);
+    const priceTTC = parseFloat(itemUnitPriceTTC);
+
+    const newItem = {
+      productId: prod.id,
+      productName: prod.name,
+      sku: prod.sku,
+      quantity: qty,
+      unitPriceTTC: priceTTC,
+      costPrice: priceTTC / 1.2 // Store as HT in transaction costPrice
+    };
+
+    setAddedItems([...addedItems, newItem]);
+    setSelectedProductId('');
+    setItemQuantity('1');
+    setItemUnitPriceTTC('');
+  };
+
+  // Save Arrivage (BC)
+  const handleSaveArrivage = async () => {
+    if (!selectedFournisseur || addedItems.length === 0) return;
+
+    const supplier = fournisseurs.find(f => f.id === selectedFournisseur || f.name === selectedFournisseur);
+    const supplierName = supplier ? supplier.name : selectedFournisseur;
+
+    // Auto-generate BC number
+    const achatCount = transactions.filter(t => t.type === 'achat').length;
+    const nextBcNum = 10 + achatCount;
+    const bcRef = `BC-26-000${nextBcNum}`;
+
+    const totalHT = addedItems.reduce((acc, item) => acc + (item.quantity * item.costPrice), 0);
+    const totalTTC = totalHT * 1.2;
+
+    const newTx = {
+      id: 'ste-' + Date.now(),
+      type: 'achat',
+      amount: totalTTC,
+      description: `Entrée ${bcRef} - PO: ${bcRef}`,
+      partner_name: supplierName,
+      date: receptionDate,
+      payment_method: 'Virement',
+      status: 'confirmé',
+      items: JSON.stringify(addedItems.map(item => ({
+        productId: item.productId,
+        productName: item.productName,
+        sku: item.sku,
+        quantity: item.quantity,
+        costPrice: item.costPrice
+      })))
+    };
+
+    if (usingMockData) {
+      // Update local quantities
+      addedItems.forEach(item => {
+        const prod = mockStock.find(s => s.id === item.productId);
+        if (prod) prod.quantity = (prod.quantity || 0) + item.quantity;
+      });
+      setTransactions([newTx, ...transactions]);
+      alert(`Arrivage ${bcRef} validé avec succès (Mode Démo) !`);
+    } else {
+      // Save in Supabase
+      const { error } = await supabase.from('transactions').insert([newTx]);
+      if (error) {
+        alert("Erreur lors de l'insertion dans Supabase : " + error.message);
+        return;
+      }
+
+      // Update quantities
+      for (const item of addedItems) {
+        const { data: stockData } = await supabase.from('stock').select('quantity').eq('id', item.productId).single();
+        if (stockData) {
+          const newQty = (stockData.quantity || 0) + item.quantity;
+          await supabase.from('stock').update({ quantity: newQty }).eq('id', item.productId);
+        }
+      }
+      fetchData();
+      alert(`Arrivage ${bcRef} enregistré avec succès !`);
+    }
+
+    // Reset form
+    setSelectedFournisseur('');
+    setAddedItems([]);
+  };
+
+  // Save Advance Fournisseur
+  const handleSaveAdvance = async (e) => {
+    e.preventDefault();
+    if (!avanceFournisseur || !avanceAmount) return;
+
+    const supplier = fournisseurs.find(f => f.id === avanceFournisseur || f.name === avanceFournisseur);
+    const supplierName = supplier ? supplier.name : avanceFournisseur;
+    const amount = parseFloat(avanceAmount);
+
+    const advanceRef = `ADV-26-000${transactions.length + 1}`;
+
+    const newTx = {
+      id: 'ste-adv-' + Date.now(),
+      type: 'charge',
+      amount: amount,
+      description: `Avance Fournisseur ${advanceRef}`,
+      partner_name: supplierName,
+      date: avanceDate,
+      payment_method: avanceMethod,
+      status: 'confirmé',
+      items: JSON.stringify([{ productName: 'Avance Fournisseur', quantity: 1, costPrice: amount }])
+    };
+
+    if (usingMockData) {
+      setTransactions([newTx, ...transactions]);
+      alert("Avance enregistrée avec succès (Mode Démo) !");
+    } else {
+      const { error } = await supabase.from('transactions').insert([newTx]);
+      if (error) {
+        alert("Erreur lors de la création de l'avance : " + error.message);
+      } else {
+        fetchData();
+        alert("Avance enregistrée avec succès !");
+      }
+    }
+
+    setAvanceFournisseur('');
+    setAvanceAmount('');
+  };
+
+  // Add Item to quick sale (for Ventes subtab)
+  const handleAddItemToVente = (e) => {
+    e.preventDefault();
+    if (!venteProductId || !venteQty || !ventePriceTTC) return;
+
+    const prod = stockItems.find(s => s.id === venteProductId);
+    if (!prod) return;
+
+    const qty = parseInt(venteQty);
+    const priceTTC = parseFloat(ventePriceTTC);
+
+    const newItem = {
+      productId: prod.id,
+      productName: prod.name,
+      sku: prod.sku,
+      quantity: qty,
+      unitPriceHT: priceTTC / 1.2,
+      totalHT: (priceTTC / 1.2) * qty,
+      priceTTC: priceTTC
+    };
+
+    setVenteItems([...venteItems, newItem]);
+    setVenteProductId('');
+    setVenteQty('1');
+    setVentePriceTTC('');
+  };
+
+  // Save Vente (Facture Client)
+  const handleSaveVente = async (e) => {
+    e.preventDefault();
+    if (!selectedClient || venteItems.length === 0) return;
+
+    const client = clients.find(c => c.id === selectedClient || c.name === selectedClient);
+    const clientName = client ? client.name : selectedClient;
+
+    const venteCount = transactions.filter(t => t.type === 'vente').length;
+    const invRef = `INV-26-000${venteCount + 10}`;
+
+    const totalHT = venteItems.reduce((acc, item) => acc + item.totalHT, 0);
+    const totalTTC = totalHT * 1.2;
+
+    const newTx = {
+      id: 'inv-gen-' + Date.now(),
+      type: 'vente',
+      amount: totalTTC,
+      description: `Facture ${invRef}`,
+      partner_name: clientName,
+      date: venteDate,
+      payment_method: venteMethod,
+      status: 'confirmé',
+      items: JSON.stringify(venteItems.map(item => ({
+        productName: item.productName,
+        sku: item.sku,
+        quantity: item.quantity,
+        unitPriceHT: item.unitPriceHT,
+        totalHT: item.totalHT
+      })))
+    };
+
+    if (usingMockData) {
+      // Update quantities
+      venteItems.forEach(item => {
+        const prod = mockStock.find(s => s.id === item.productId);
+        if (prod) prod.quantity = Math.max(0, (prod.quantity || 0) - item.quantity);
+      });
+      setTransactions([newTx, ...transactions]);
+      alert(`Vente ${invRef} validée avec succès (Mode Démo) !`);
+    } else {
+      // Insert Vente
+      const { error } = await supabase.from('transactions').insert([newTx]);
+      if (error) {
+        alert("Erreur lors de l'insertion dans Supabase : " + error.message);
+        return;
+      }
+
+      // Update quantities (decr stock)
+      for (const item of venteItems) {
+        const { data: stockData } = await supabase.from('stock').select('quantity').eq('id', item.productId).single();
+        if (stockData) {
+          const newQty = Math.max(0, (stockData.quantity || 0) - item.quantity);
+          await supabase.from('stock').update({ quantity: newQty }).eq('id', item.productId);
+        }
+      }
+      fetchData();
+      alert(`Vente ${invRef} enregistrée avec succès !`);
+    }
+
+    // Reset Form & Close
+    setSelectedClient('');
+    setVenteItems([]);
+    setShowVenteModal(false);
+  };
+
+  const handleExportCSV = () => {
+    const BOM = "\uFEFF";
+    const headers = activeSubTab === 'entrees'
+      ? ["Référence BC/Avance", "Date", "Fournisseur", "Montant TTC (DH)", "Méthode", "Statut"]
+      : ["Numéro Facture", "Date", "Client", "Montant TTC (DH)", "Méthode", "Statut"];
+
+    const rows = filteredTxs.map(t => [
+      getBCReference(t.description),
+      t.date,
+      t.partner_name || '',
+      t.amount,
+      t.payment_method || 'Virement',
+      t.status
+    ]);
+
+    const csvContent = BOM + [headers.join(','), ...rows.map(e => e.map(val => `"${val}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${activeSubTab}_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Filter Transactions based on Tabs
+  const displayedTxs = transactions.filter(t => {
+    if (activeSubTab === 'entrees') {
+      if (subSubTab === 'bc') {
+        return t.type === 'achat';
+      } else {
+        return t.type === 'charge' && t.description?.toLowerCase().includes('avance');
+      }
+    } else {
+      return t.type === 'vente' || t.type === 'revenu';
+    }
+  });
+
+  const filteredTxs = displayedTxs.filter(t => {
+    return t.description?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           (t.partner_name && t.partner_name.toLowerCase().includes(searchTerm.toLowerCase()));
+  });
+
   return (
-    <div>
-      <div className="section-header">
-        <h2 className="top-bar-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <ArrowUpDown size={24} style={{ color: 'var(--primary)' }} /> Entrées & Ventes
-        </h2>
-        <button className="btn btn-secondary" onClick={fetchTransactions}>
-          <RefreshCw size={16} /> Actualiser
-        </button>
-      </div>
+    <div className="stock-page-container">
+      {/* Header section matching images */}
+      <div className="catalog-header">
+        <div className="catalog-title-wrapper">
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ backgroundColor: '#dbeafe', color: '#2563eb', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Plus size={20} style={{ strokeWidth: 3 }} />
+            </div>
+            {activeSubTab === 'entrees' ? 'Arrivages & Achats' : 'Ventes & Factures'}
+          </h1>
+          <p className="catalog-subtitle">
+            {activeSubTab === 'entrees' 
+              ? 'Gérez vos réceptions et vos avances fournisseurs.' 
+              : 'Suivez les factures et les ventes clients.'}
+          </p>
+        </div>
+        
+        <div className="catalog-header-actions" style={{ alignItems: 'center' }}>
+          <button className="btn btn-white" onClick={handleExportCSV}>
+            <Download size={16} /> EXPORTER CSV
+          </button>
 
-      {/* Sub Tabs */}
-      <div className="tab-switcher" style={{ marginBottom: '24px' }}>
-        <button 
-          className={`tab-btn ${activeSubTab === 'entrees' ? 'active' : ''}`}
-          onClick={() => { setActiveSubTab('entrees'); setExpandedRows({}); }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ArrowDownCircle size={16} /> Entrées Stock (Achats)
-          </span>
-        </button>
-        <button 
-          className={`tab-btn ${activeSubTab === 'ventes' ? 'active' : ''}`}
-          onClick={() => { setActiveSubTab('ventes'); setExpandedRows({}); }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ArrowUpCircle size={16} /> Ventes & Factures
-          </span>
-        </button>
-      </div>
-
-      {/* Summary KPI */}
-      <div className="kpi-grid" style={{ gridTemplateColumns: '1fr', maxWidth: '300px', marginBottom: '24px' }}>
-        <div className="glass-card kpi-card">
-          <div className={`kpi-icon-wrapper ${activeSubTab === 'entrees' ? 'danger' : 'success'}`}>
-            {activeSubTab === 'entrees' ? <ArrowDownCircle size={24} /> : <ArrowUpCircle size={24} />}
-          </div>
-          <div className="kpi-info">
-            <span className="kpi-label">{activeSubTab === 'entrees' ? 'Total Approvisionnements' : 'Total Factures Clients'}</span>
-            <span className="kpi-value">{formatCurrency(sumAmount)}</span>
-          </div>
+          {activeSubTab === 'entrees' ? (
+            /* Sub sub tab switcher for Arrivages (BC) vs Avances */
+            <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
+              <button 
+                className={`tab-btn ${subSubTab === 'bc' ? 'active' : ''}`}
+                style={{ 
+                  textTransform: 'uppercase', 
+                  fontSize: '11px', 
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: subSubTab === 'bc' ? '#2563eb' : 'transparent',
+                  color: subSubTab === 'bc' ? '#ffffff' : '#64748b',
+                  boxShadow: subSubTab === 'bc' ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
+                  transition: 'all 0.2s ease',
+                  border: 'none',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setSubSubTab('bc')}
+              >
+                Arrivages (BC)
+              </button>
+              <button 
+                className={`tab-btn ${subSubTab === 'avances' ? 'active' : ''}`}
+                style={{ 
+                  textTransform: 'uppercase', 
+                  fontSize: '11px', 
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: subSubTab === 'avances' ? '#2563eb' : 'transparent',
+                  color: subSubTab === 'avances' ? '#ffffff' : '#64748b',
+                  boxShadow: subSubTab === 'avances' ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
+                  transition: 'all 0.2s ease',
+                  border: 'none',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setSubSubTab('avances')}
+              >
+                Avances
+              </button>
+            </div>
+          ) : (
+            <button className="btn btn-blue-action" onClick={() => setShowVenteModal(true)}>
+              <Plus size={16} /> NOUVELLE VENTE
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Filter and Search */}
-      <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
-        <div className="filter-bar">
-          <div className="search-input-wrapper">
-            <Search size={18} className="search-icon" />
-            <input
-              type="text"
-              placeholder={activeSubTab === 'entrees' ? "Rechercher par achat, fournisseur..." : "Rechercher par vente, client..."}
-              className="form-input search-input"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
+      {/* RENDER FOR ARRIVAGES (BC) VIEW */}
+      {activeSubTab === 'entrees' && subSubTab === 'bc' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Card: Nouvel Arrivage (BC) */}
+          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '24px' }}>Nouvel Arrivage (BC)</h3>
+            
+            <form onSubmit={handleAddItemToArrivage}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                {/* Date Reception */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#94a3b8' }}>DATE RÉCEPTION</span>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={receptionDate}
+                    onChange={(e) => setReceptionDate(e.target.value)}
+                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
+                  />
+                </div>
 
-      {/* List */}
-      <div className="glass-card">
-        {loading ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>Chargement...</div>
-        ) : (
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '40px' }}></th>
-                  <th>Date</th>
-                  <th>Numéro / Réf</th>
-                  <th>Partenaire</th>
-                  <th>Montant Global</th>
-                  <th>Méthode</th>
-                  <th>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTxs.map((tx) => {
-                  const itemsList = parseItems(tx.items);
-                  const isExpanded = expandedRows[tx.id];
-                  return (
-                    <React.Fragment key={tx.id}>
-                      <tr style={{ cursor: 'pointer' }} onClick={() => toggleRow(tx.id)}>
-                        <td>
-                          {itemsList.length > 0 ? (
-                            isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />
-                          ) : null}
-                        </td>
-                        <td>{new Date(tx.date).toLocaleDateString('fr-FR')}</td>
-                        <td style={{ fontWeight: '600' }}>{tx.description}</td>
-                        <td>{tx.partner_name || '-'}</td>
-                        <td style={{ fontWeight: '600', color: activeSubTab === 'entrees' ? 'var(--danger)' : 'var(--success)' }}>
-                          {activeSubTab === 'entrees' ? '-' : '+'} {formatCurrency(Math.abs(tx.amount))}
-                        </td>
-                        <td>{tx.payment_method || 'Chèque'}</td>
-                        <td>
-                          <span className={`badge ${tx.status}`}>
-                            {tx.status === 'confirmé' ? 'payé' : (tx.status === 'en_attente' ? 'partiel / impayé' : tx.status)}
-                          </span>
-                        </td>
+                {/* Fournisseur */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#94a3b8' }}>FOURNISSEUR</span>
+                  <select
+                    className="select-category-catalog"
+                    value={selectedFournisseur}
+                    onChange={(e) => setSelectedFournisseur(e.target.value)}
+                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                    required
+                  >
+                    <option value="">Choisir Fournisseur...</option>
+                    {fournisseurs.map(f => (
+                      <option key={f.id} value={f.name}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Dashed green upload button matching image */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#10b981' }}>JUSTIFICATIF (IMAGE/PDF)</span>
+                  <button 
+                    type="button" 
+                    onClick={() => alert("Simulateur d'upload activé : Fichier attaché !")}
+                    style={{ 
+                      border: '2px dashed #a7f3d0', 
+                      backgroundColor: '#ecfdf5', 
+                      color: '#10b981', 
+                      borderRadius: '12px', 
+                      padding: '12px 24px', 
+                      fontWeight: '700', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      gap: '8px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      height: '46px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <Upload size={16} /> UPLOADER FACTURE
+                  </button>
+                </div>
+              </div>
+
+              {/* Items Entry row in light blue matching image */}
+              <div style={{ backgroundColor: '#eff6ff', borderRadius: '16px', padding: '20px', display: 'grid', gridTemplateColumns: '3fr 1fr 1.5fr auto', gap: '16px', alignItems: 'flex-end', border: '1px solid #dbeafe' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>PRODUIT À STOCKER</span>
+                  <select
+                    className="select-category-catalog"
+                    value={selectedProductId}
+                    onChange={(e) => setSelectedProductId(e.target.value)}
+                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', width: '100%' }}
+                  >
+                    <option value="">Choisir un article...</option>
+                    {stockItems.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>QUANTITÉ</span>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-input"
+                    value={itemQuantity}
+                    onChange={(e) => setItemQuantity(e.target.value)}
+                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', textAlign: 'center', fontWeight: '700' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>P.U. TTC (DH)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Montant"
+                    className="form-input"
+                    value={itemUnitPriceTTC}
+                    onChange={(e) => setItemUnitPriceTTC(e.target.value)}
+                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', fontWeight: '700' }}
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="btn btn-blue-action" 
+                  style={{ height: '46px', padding: '0 32px', borderRadius: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  AJOUTER
+                </button>
+              </div>
+            </form>
+
+            {/* List of currently added items in this BC */}
+            {addedItems.length > 0 && (
+              <div style={{ marginTop: '24px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
+                <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Composants de l'arrivage en cours :</h4>
+                <div className="table-container">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontWeight: '700' }}>
+                        <th style={{ padding: '10px 8px' }}>SKU</th>
+                        <th style={{ padding: '10px 8px' }}>DÉSIGNATION</th>
+                        <th style={{ padding: '10px 8px' }}>QUANTITÉ</th>
+                        <th style={{ padding: '10px 8px' }}>P.U. TTC</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'right' }}>TOTAL TTC</th>
+                        <th style={{ padding: '10px 8px', width: '40px' }}></th>
                       </tr>
-                      {/* Expanded details row */}
-                      {isExpanded && itemsList.length > 0 && (
-                        <tr>
-                          <td colSpan="7" style={{ padding: '0 16px 16px 56px', backgroundColor: 'rgba(255,255,255,0.01)' }}>
-                            <div style={{ padding: '12px', borderLeft: '3px solid var(--primary)', background: 'rgba(255,255,255,0.01)', borderRadius: '0 8px 8px 0' }}>
-                              <div style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.5px' }}>Détail des Articles :</div>
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                                <thead>
-                                  <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                                    <th style={{ padding: '6px 0' }}>SKU</th>
-                                    <th>Désignation</th>
-                                    <th>Quantité</th>
-                                    <th>Prix Unitaire HT</th>
-                                    <th style={{ textAlign: 'right' }}>Total HT</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {itemsList.map((item, idx) => {
-                                    const qty = item.quantity || 0;
-                                    const price = item.unitPriceHT || item.costPrice || 0;
-                                    const total = qty * price;
-                                    return (
-                                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', color: 'var(--text-secondary)' }}>
-                                        <td style={{ padding: '8px 0', fontFamily: 'monospace' }}>{item.sku}</td>
-                                        <td style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{item.productName}</td>
-                                        <td>{qty}</td>
-                                        <td>{formatCurrency(price)}</td>
-                                        <td style={{ textAlign: 'right', fontWeight: '600', color: 'var(--text-primary)' }}>{formatCurrency(total)}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
+                    </thead>
+                    <tbody>
+                      {addedItems.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                          <td style={{ padding: '12px 8px', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
+                          <td style={{ padding: '12px 8px', fontWeight: '700', color: '#0f172a' }}>{item.productName}</td>
+                          <td style={{ padding: '12px 8px', fontWeight: '600' }}>{item.quantity}</td>
+                          <td style={{ padding: '12px 8px' }}>{formatCurrency(item.unitPriceTTC)}</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{formatCurrency(item.quantity * item.unitPriceTTC)}</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                            <button 
+                              type="button" 
+                              className="action-icon-btn delete" 
+                              onClick={() => setAddedItems(addedItems.filter((_, i) => i !== idx))}
+                              style={{ color: '#cbd5e1' }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-                {filteredTxs.length === 0 && (
-                  <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
-                      Aucun enregistrement trouvé.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', backgroundColor: '#f8fafc', padding: '16px 24px', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#475569' }}>
+                    TOTAL DU BON DE COMMANDE : <span style={{ color: '#2563eb', fontSize: '20px', marginLeft: '8px' }}>{formatCurrency(addedItems.reduce((acc, item) => acc + (item.quantity * item.unitPriceTTC), 0))}</span>
+                  </div>
+                  <button type="button" className="btn btn-blue-action" onClick={handleSaveArrivage} style={{ padding: '12px 28px', borderRadius: '12px' }}>
+                    VALIDER L'ARRIVAGE (BC)
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Card: Historique des Arrivages (BC) */}
+          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+              <div style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '6px', borderRadius: '8px' }}>
+                <History size={16} />
+              </div>
+              <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Historique des Arrivages (BC)</h3>
+            </div>
+
+            {filteredTxs.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                Aucun arrivage enregistré.
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="custom-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE BC</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>FOURNISSEUR</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TOTAL TTC</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTxs.map((tx) => (
+                      <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                        <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+                          {getBCReference(tx.description)}
+                        </td>
+                        <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
+                          {tx.date}
+                        </td>
+                        <td style={{ padding: '20px 16px' }}>
+                          <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                            {tx.partner_name || 'N/A'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
+                          {formatCurrency(tx.amount)}
+                        </td>
+                        <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '14px', color: '#cbd5e1' }}>
+                            <button className="action-icon-btn" style={{ color: '#2563eb' }} onClick={() => toggleRow(tx.id)} title="Voir details">
+                              <Eye size={18} />
+                            </button>
+                            <button className="action-icon-btn" style={{ color: '#f59e0b' }} onClick={() => alert("Edition de l'arrivage " + getBCReference(tx.description))} title="Modifier">
+                              <Pencil size={16} />
+                            </button>
+                            <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={() => alert("Génération du bon de réception PDF pour " + getBCReference(tx.description))} title="Facture PDF">
+                              <FileText size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* RENDER FOR AVANCES VIEW */}
+      {activeSubTab === 'entrees' && subSubTab === 'avances' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Card: Nouvelle Avance */}
+          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '24px' }}>Nouvelle Avance Fournisseur</h3>
+            
+            <form onSubmit={handleSaveAdvance}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', alignItems: 'flex-end', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#94a3b8' }}>DATE DE PAIEMENT</span>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={avanceDate}
+                    onChange={(e) => setAvanceDate(e.target.value)}
+                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#94a3b8' }}>FOURNISSEUR</span>
+                  <select
+                    className="select-category-catalog"
+                    value={avanceFournisseur}
+                    onChange={(e) => setAvanceFournisseur(e.target.value)}
+                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                    required
+                  >
+                    <option value="">Choisir Fournisseur...</option>
+                    {fournisseurs.map(f => (
+                      <option key={f.id} value={f.name}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#94a3b8' }}>MONTANT DE L'AVANCE (DH)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    placeholder="ex: 15000"
+                    className="form-input"
+                    value={avanceAmount}
+                    onChange={(e) => setAvanceAmount(e.target.value)}
+                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700' }}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span className="form-label" style={{ color: '#94a3b8' }}>MODE DE PAIEMENT</span>
+                  <select
+                    className="select-category-catalog"
+                    value={avanceMethod}
+                    onChange={(e) => setAvanceMethod(e.target.value)}
+                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                  >
+                    <option value="Virement">Virement</option>
+                    <option value="Chèque">Chèque</option>
+                    <option value="Effet">Effet</option>
+                    <option value="Espèce">Espèce</option>
+                  </select>
+                </div>
+
+                <button type="submit" className="btn btn-blue-action" style={{ height: '46px', borderRadius: '12px', fontWeight: '700' }}>
+                  ENREGISTRER L'AVANCE
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Card: Historique des Avances */}
+          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+              <div style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '6px', borderRadius: '8px' }}>
+                <History size={16} />
+              </div>
+              <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Historique des Avances versées</h3>
+            </div>
+
+            {filteredTxs.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                Aucune avance enregistrée.
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="custom-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE AVANCE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>FOURNISSEUR</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT PAYÉ</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MODE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTxs.map((tx) => (
+                      <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                        <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+                          {tx.description}
+                        </td>
+                        <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
+                          {tx.date}
+                        </td>
+                        <td style={{ padding: '20px 16px' }}>
+                          <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                            {tx.partner_name || 'N/A'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '20px 16px', fontWeight: '800', color: '#ef4444', fontSize: '15px' }}>
+                          -{formatCurrency(tx.amount)}
+                        </td>
+                        <td style={{ padding: '20px 16px', fontWeight: '600', color: '#475569' }}>
+                          {tx.payment_method}
+                        </td>
+                        <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '14px', color: '#cbd5e1' }}>
+                            <button className="action-icon-btn delete" style={{ color: '#ef4444' }} onClick={(e) => handleDeleteClick(tx.id, e)} title="Annuler l'avance">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* RENDER FOR VENTES & FACTURES VIEW */}
+      {activeSubTab === 'ventes' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Sales Search and Summary Filter Row */}
+          <div className="catalog-filter-bar">
+            <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
+              <Search size={18} className="search-icon" style={{ color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Rechercher par facture, client..."
+                className="form-input search-input-catalog"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <button 
+              className="btn btn-white" 
+              onClick={fetchData} 
+              title="Actualiser les données"
+              style={{ padding: '12px', borderRadius: '12px' }}
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
+
+          {/* Sales List Table */}
+          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
+            {loading ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500' }}>
+                Chargement des ventes...
+              </div>
+            ) : filteredTxs.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500', fontStyle: 'italic' }}>
+                Aucune facture de vente trouvée.
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: '40px', borderBottom: '1px solid #f1f5f9' }}></th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>NUMÉRO / RÉF</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>CLIENT</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT GLOBAL</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MÉTHODE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>STATUT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTxs.map((tx) => {
+                      const itemsList = parseItems(tx.items);
+                      const isExpanded = expandedRows[tx.id];
+                      
+                      return (
+                        <React.Fragment key={tx.id}>
+                          <tr style={{ cursor: 'pointer', borderBottom: '1px solid #f8fafc' }} onClick={() => toggleRow(tx.id)}>
+                            <td>
+                              {itemsList.length > 0 ? (
+                                isExpanded ? <ChevronUp size={16} style={{ color: '#94a3b8' }} /> : <ChevronDown size={16} style={{ color: '#94a3b8' }} />
+                              ) : null}
+                            </td>
+                            <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
+                              {tx.date}
+                            </td>
+                            <td style={{ padding: '20px 16px', fontWeight: '700', color: '#0f172a' }}>
+                              {getBCReference(tx.description)}
+                            </td>
+                            <td style={{ padding: '20px 16px' }}>
+                              <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                                {tx.partner_name || 'N/A'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '20px 16px', fontWeight: '800', color: '#10b981', fontSize: '15px' }}>
+                              +{formatCurrency(tx.amount)}
+                            </td>
+                            <td style={{ padding: '20px 16px', fontWeight: '600', color: '#475569' }}>
+                              {tx.payment_method || 'Chèque'}
+                            </td>
+                            <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                              <span className={`badge ${tx.status}`}>
+                                {tx.status === 'confirmé' ? 'payé' : (tx.status === 'en_attente' ? 'partiel' : tx.status)}
+                              </span>
+                            </td>
+                          </tr>
+                          
+                          {/* Expanded items row */}
+                          {isExpanded && itemsList.length > 0 && (
+                            <tr>
+                              <td colSpan="7" style={{ padding: '0 16px 20px 56px', backgroundColor: '#fafbfd' }}>
+                                <div style={{ padding: '16px', borderLeft: '3px solid #2563eb', background: '#ffffff', borderRadius: '0 12px 12px 0', border: '1px solid #e2e8f0', borderLeftWidth: '3px', marginTop: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: '#64748b', marginBottom: '12px', letterSpacing: '0.5px' }}>Détail des Articles vendus :</div>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                    <thead>
+                                      <tr style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontWeight: '700' }}>
+                                        <th style={{ padding: '8px 0' }}>SKU</th>
+                                        <th>DÉSIGNATION</th>
+                                        <th>QUANTITÉ</th>
+                                        <th>P.U. HT</th>
+                                        <th style={{ textAlign: 'right' }}>TOTAL HT</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {itemsList.map((item, idx) => {
+                                        const qty = item.quantity || 0;
+                                        const price = item.unitPriceHT || 0;
+                                        const total = qty * price;
+                                        return (
+                                          <tr key={idx} style={{ borderBottom: '1px solid #f8fafc', color: '#475569' }}>
+                                            <td style={{ padding: '10px 0', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
+                                            <td style={{ fontWeight: '700', color: '#0f172a' }}>{item.productName}</td>
+                                            <td style={{ fontWeight: '600' }}>{qty}</td>
+                                            <td>{formatCurrency(price)}</td>
+                                            <td style={{ textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{formatCurrency(total)}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* VENTE QUICK ADD MODAL (for Ventes Tab) */}
+      {showVenteModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ color: 'var(--text-primary)', width: '600px' }}>
+            <button className="modal-close" onClick={() => setShowVenteModal(false)}>
+              <X size={20} />
+            </button>
+            <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Créer une Nouvelle Vente</h3>
+            
+            <form onSubmit={handleAddItemToVente} style={{ marginBottom: '20px' }}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Date Vente</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={venteDate}
+                    onChange={(e) => setVenteDate(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Client</label>
+                  <select
+                    className="form-input"
+                    value={selectedClient}
+                    onChange={(e) => setSelectedClient(e.target.value)}
+                    required
+                  >
+                    <option value="">Choisir Client...</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Mode Paiement</label>
+                  <select
+                    className="form-input"
+                    value={venteMethod}
+                    onChange={(e) => setVenteMethod(e.target.value)}
+                  >
+                    <option value="Chèque">Chèque</option>
+                    <option value="Virement">Virement</option>
+                    <option value="Espèce">Espèce</option>
+                    <option value="Effet">Effet</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Add item fields */}
+              <div style={{ backgroundColor: '#f0fdf4', borderRadius: '12px', padding: '16px', border: '1px solid #bbf7d0', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '10px', alignItems: 'flex-end' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ color: '#16a34a' }}>PRODUIT</label>
+                  <select
+                    className="form-input"
+                    value={venteProductId}
+                    onChange={(e) => setVenteProductId(e.target.value)}
+                    style={{ backgroundColor: '#fff', borderColor: '#86efac' }}
+                  >
+                    <option value="">Choisir...</option>
+                    {stockItems.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.sku}) - Stock: {p.quantity}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ color: '#16a34a' }}>QTÉ</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-input"
+                    value={venteQty}
+                    onChange={(e) => setVenteQty(e.target.value)}
+                    style={{ backgroundColor: '#fff', borderColor: '#86efac', textAlign: 'center' }}
+                  />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ color: '#16a34a' }}>P.U. TTC (DH)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    className="form-input"
+                    value={ventePriceTTC}
+                    onChange={(e) => setVentePriceTTC(e.target.value)}
+                    style={{ backgroundColor: '#fff', borderColor: '#86efac' }}
+                  />
+                </div>
+                <button type="submit" className="btn" style={{ backgroundColor: '#16a34a', color: '#fff', height: '38px', borderRadius: '8px' }}>
+                  Ajouter
+                </button>
+              </div>
+            </form>
+
+            {/* Added Vente Items */}
+            {venteItems.length > 0 && (
+              <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '20px', border: '1px solid #f1f5f9', borderRadius: '12px', padding: '12px' }}>
+                <table style={{ width: '100%', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9', textAlign: 'left' }}>
+                      <th>Produit</th>
+                      <th>Qté</th>
+                      <th>Prix TTC</th>
+                      <th style={{ textAlign: 'right' }}>Total TTC</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {venteItems.map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                        <td style={{ fontWeight: '600' }}>{item.productName}</td>
+                        <td>{item.quantity}</td>
+                        <td>{formatCurrency(item.priceTTC)}</td>
+                        <td style={{ textAlign: 'right', fontWeight: '700' }}>{formatCurrency(item.quantity * item.priceTTC)}</td>
+                        <td>
+                          <button type="button" className="action-icon-btn delete" onClick={() => setVenteItems(venteItems.filter((_, i) => i !== idx))}>
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+              <div style={{ fontWeight: '700', fontSize: '14px' }}>
+                Total Vente: <span style={{ color: '#16a34a', fontSize: '18px' }}>{formatCurrency(venteItems.reduce((acc, item) => acc + (item.quantity * item.priceTTC), 0))}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowVenteModal(false)}>Annuler</button>
+                <button type="button" className="btn" style={{ backgroundColor: '#2563eb', color: '#fff' }} onClick={handleSaveVente} disabled={venteItems.length === 0}>
+                  Valider la Facture
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
