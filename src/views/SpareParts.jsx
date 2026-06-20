@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { formatCurrency } from '../lib/format';
-import { Plus, Search, Settings, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Plus, Search, Box, AlertTriangle, RefreshCw, Download, Pencil, Trash2, X, Network } from 'lucide-react';
 
 export default function SpareParts() {
   const [parts, setParts] = useState([]);
@@ -10,6 +10,7 @@ export default function SpareParts() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [usingMockData, setUsingMockData] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
 
   // Form states
   const [name, setName] = useState('');
@@ -36,7 +37,7 @@ export default function SpareParts() {
       setParts([
         { id: '1', name: 'Filtre à Huile F-104', part_number: 'FLT-H-104', category: 'Moteur', quantity: 12, min_quantity: 4, unit_price: 15.00 },
         { id: '2', name: 'Joint Torique 24mm', part_number: 'JNT-TOR-24', category: 'Plomberie', quantity: 200, min_quantity: 50, unit_price: 0.15 },
-        { id: '3', name: 'Résistance Chauffante 2000W', part_number: 'RES-CH-2000W', category: 'Chauffage', quantity: 1, min_quantity: 2, unit_price: 45.00 }, // low stock
+        { id: '3', name: 'Résistance Chauffante 2000W', part_number: 'RES-CH-2000W', category: 'Chauffage', quantity: 1, min_quantity: 2, unit_price: 45.00 },
         { id: '4', name: 'Courroie de transmission C-45', part_number: 'CRT-C-45', category: 'Moteur', quantity: 3, min_quantity: 2, unit_price: 22.50 }
       ]);
     } finally {
@@ -48,155 +49,319 @@ export default function SpareParts() {
     fetchParts();
   }, []);
 
-  const handleAddPart = async (e) => {
-    e.preventDefault();
-    if (!name || !partNumber || !category || !quantity || !unitPrice) return;
-
-    const newPart = {
-      name,
-      part_number: partNumber,
-      category,
-      quantity: parseInt(quantity),
-      min_quantity: parseInt(minQuantity),
-      unit_price: parseFloat(unitPrice)
-    };
-
-    if (usingMockData) {
-      const mockNewPart = {
-        ...newPart,
-        id: Math.random().toString()
-      };
-      setParts([...parts, mockNewPart]);
-    } else {
-      const { error } = await supabase.from('spare_parts').insert([newPart]);
-      if (error) {
-        alert("Erreur lors de l'insertion dans Supabase : " + error.message);
-      } else {
-        fetchParts();
-      }
-    }
-
-    // Reset Form
+  const handleAddNewClick = () => {
+    setEditingItem(null);
     setName('');
     setPartNumber('');
     setCategory('');
     setQuantity('');
+    setMinQuantity('2');
     setUnitPrice('');
+    setShowModal(true);
+  };
+
+  const handleEditClick = (part, e) => {
+    e.stopPropagation();
+    setEditingItem(part);
+    setName(part.name || '');
+    setPartNumber(part.part_number || '');
+    setCategory(part.category || '');
+    setQuantity(part.quantity !== undefined ? part.quantity.toString() : '');
+    setMinQuantity(part.min_quantity !== undefined ? part.min_quantity.toString() : '2');
+    setUnitPrice(part.unit_price !== undefined ? part.unit_price.toString() : '');
+    setShowModal(true);
+  };
+
+  const handleDeleteClick = async (id, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Voulez-vous vraiment supprimer cette pièce ?")) return;
+
+    if (usingMockData) {
+      setParts(parts.filter(p => p.id !== id));
+    } else {
+      const { error } = await supabase
+        .from('spare_parts')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        alert("Erreur lors de la suppression : " + error.message);
+      } else {
+        fetchParts();
+      }
+    }
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!name || !partNumber || !category || quantity === '' || unitPrice === '') return;
+
+    const qty = parseInt(quantity);
+    const minQty = parseInt(minQuantity) || 2;
+    const price = parseFloat(unitPrice);
+
+    if (editingItem) {
+      const updatedPart = {
+        ...editingItem,
+        name,
+        part_number: partNumber,
+        category,
+        quantity: qty,
+        min_quantity: minQty,
+        unit_price: price
+      };
+
+      if (usingMockData) {
+        setParts(parts.map(p => p.id === editingItem.id ? updatedPart : p));
+      } else {
+        const { error } = await supabase
+          .from('spare_parts')
+          .update({
+            name,
+            part_number: partNumber,
+            category,
+            quantity: qty,
+            min_quantity: minQty,
+            unit_price: price
+          })
+          .eq('id', editingItem.id);
+
+        if (error) {
+          alert("Erreur lors de la modification : " + error.message);
+        } else {
+          fetchParts();
+        }
+      }
+    } else {
+      const newPart = {
+        id: 'part-' + Date.now(),
+        name,
+        part_number: partNumber,
+        category,
+        quantity: qty,
+        min_quantity: minQty,
+        unit_price: price
+      };
+
+      if (usingMockData) {
+        setParts([newPart, ...parts]);
+      } else {
+        const { error } = await supabase
+          .from('spare_parts')
+          .insert([newPart]);
+
+        if (error) {
+          alert("Erreur lors de l'insertion : " + error.message);
+        } else {
+          fetchParts();
+        }
+      }
+    }
+
+    // Reset fields & Close
+    setName('');
+    setPartNumber('');
+    setCategory('');
+    setQuantity('');
+    setMinQuantity('2');
+    setUnitPrice('');
+    setEditingItem(null);
     setShowModal(false);
   };
 
+  const handleExportCSV = () => {
+    const BOM = "\uFEFF";
+    const headers = ["Désignation", "Référence Fabricant", "Produit Parent", "Prix HT (DH)", "Prix TTC (DH)", "Stock Neuf", "Seuil d'Alerte"];
+    const rows = parts.map(part => [
+      part.name,
+      part.part_number,
+      part.category,
+      part.unit_price,
+      (part.unit_price * 1.2).toFixed(2),
+      part.quantity,
+      part.min_quantity
+    ]);
+
+    const csvContent = BOM + [headers.join(','), ...rows.map(e => e.map(val => `"${val}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `pieces_rechange_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Get distinct parent products/categories
   const categories = [...new Set(parts.map(p => p.category))];
 
+  // Filtering
   const filteredParts = parts.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          p.part_number.toLowerCase().includes(searchTerm.toLowerCase());
+                          (p.part_number && p.part_number.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = filterCategory === 'all' || p.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
 
   return (
-    <div>
-      <div className="section-header">
-        <h2 className="top-bar-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Settings size={24} style={{ color: 'var(--primary)' }} /> Pièces de Rechange
-        </h2>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="btn btn-secondary" onClick={fetchParts}>
-            <RefreshCw size={16} /> Actualiser
+    <div className="stock-page-container">
+      {/* Header section matching image */}
+      <div className="catalog-header">
+        <div className="catalog-title-wrapper">
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Network size={28} style={{ color: '#2563eb' }} /> Stock Pièces de Rechange
+          </h1>
+          <p className="catalog-subtitle">Gérez vos composants liés aux produits principaux.</p>
+        </div>
+        <div className="catalog-header-actions">
+          <button className="btn btn-white" onClick={handleExportCSV}>
+            <Download size={16} /> EXPORTER CSV
           </button>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} /> Ajouter une Pièce
+          <button className="btn btn-blue-action" onClick={handleAddNewClick}>
+            <Plus size={16} /> NOUVELLE PIÈCE
           </button>
         </div>
       </div>
 
-      {/* Search & Filters */}
-      <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
-        <div className="filter-bar">
-          <div className="search-input-wrapper">
-            <Search size={18} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Rechercher par désignation, réf..."
-              className="form-input search-input"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <select 
-            className="form-input" 
-            style={{ width: '180px' }}
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="all">Toutes catégories</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+      {/* Filter and Search bar matching image */}
+      <div className="catalog-filter-bar">
+        <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
+          <Search size={18} className="search-icon" style={{ color: '#94a3b8' }} />
+          <input
+            type="text"
+            placeholder="Recherche par nom, référence..."
+            className="form-input search-input-catalog"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
+
+        <select
+          className="select-category-catalog"
+          value={filterCategory}
+          onChange={(e) => setFilterCategory(e.target.value)}
+        >
+          <option value="all">Tous les produits parents</option>
+          {categories.map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+
+        <button 
+          className="btn btn-white" 
+          onClick={fetchParts} 
+          title="Actualiser les données"
+          style={{ padding: '12px', borderRadius: '12px' }}
+        >
+          <RefreshCw size={16} />
+        </button>
       </div>
 
-      {/* Spare Parts Table */}
-      <div className="glass-card">
-        {loading ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>Chargement...</div>
-        ) : (
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Référence</th>
-                  <th>Désignation</th>
-                  <th>Catégorie</th>
-                  <th>Quantité en Stock</th>
-                  <th>Prix Unitaire</th>
-                  <th>Valeur Globale</th>
-                  <th>Stock Mini</th>
-                  <th>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredParts.map((part) => {
-                  const isLow = part.quantity <= part.min_quantity;
-                  const value = part.quantity * part.unit_price;
-                  return (
-                    <tr key={part.id}>
-                      <td style={{ fontFamily: 'monospace', fontWeight: '600' }}>{part.part_number}</td>
-                      <td style={{ fontWeight: '500' }}>{part.name}</td>
-                      <td>{part.category}</td>
-                      <td style={{ fontWeight: '600', color: isLow ? 'var(--danger)' : 'var(--text-primary)' }}>{part.quantity} pcs</td>
-                      <td>{formatCurrency(part.unit_price)}</td>
-                      <td style={{ fontWeight: '600' }}>{formatCurrency(value)}</td>
-                      <td>{part.min_quantity} pcs</td>
-                      <td>
-                        <span className={`badge ${isLow ? 'ouvert' : 'confirmé'}`}>
-                          {isLow ? 'À commander' : 'Disponible'}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {filteredParts.length === 0 && (
-                  <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
-                      Aucune pièce de rechange trouvée.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+      {/* Empty State and Cards Grid matching image */}
+      {loading ? (
+        <div style={{ padding: '80px 0', textAlign: 'center', color: '#64748b', fontSize: '16px', fontWeight: '500' }}>
+          Chargement des pièces...
+        </div>
+      ) : filteredParts.length === 0 ? (
+        <div className="empty-state-card">
+          <div className="empty-state-icon">
+            <Box size={48} strokeWidth={1} />
           </div>
-        )}
-      </div>
+          <p className="empty-state-text">Aucune pièce de rechange trouvée.</p>
+        </div>
+      ) : (
+        <div className="catalog-grid">
+          {filteredParts.map(part => {
+            const isOutOfStock = (part.quantity || 0) === 0;
+            const isLowStock = part.quantity <= part.min_quantity;
+            const displayPrice = (part.unit_price || 0) * 1.2;
 
-      {/* Modal for adding spare parts */}
+            return (
+              <div key={part.id} className="product-card">
+                <div className="product-card-header">
+                  <div className="product-card-icon">
+                    <Box size={20} />
+                  </div>
+                  <div className="product-card-actions">
+                    <button className="action-icon-btn" onClick={(e) => handleEditClick(part, e)} title="Modifier">
+                      <Pencil size={16} />
+                    </button>
+                    <button className="action-icon-btn delete" onClick={(e) => handleDeleteClick(part.id, e)} title="Supprimer">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="product-tags">
+                  <span className="tag-category">{part.category}</span>
+                  {part.part_number && <span className="tag-sku">{part.part_number}</span>}
+                </div>
+
+                <h3 className="product-card-title">{part.name}</h3>
+
+                <div className="product-card-body">
+                  <div className="price-section-catalog">
+                    <span className="price-label-catalog">PRIX D'ACHAT TTC</span>
+                    <span className="price-value-catalog">{formatCurrency(displayPrice)}</span>
+                  </div>
+
+                  <div className="stock-section-catalog">
+                    {isOutOfStock ? (
+                      <span className="rupture-badge">RUPTURE DE STOCK</span>
+                    ) : isLowStock ? (
+                      <span className="warning-badge">STOCK FAIBLE</span>
+                    ) : (
+                      <span className="en-stock-badge">DISPONIBLE</span>
+                    )}
+
+                    <div className="stock-pill-catalog">
+                      <span className="stock-pill-label">STOCK NEUF</span>
+                      <span className="stock-pill-value" style={{ 
+                        border: '1px solid #e2e8f0', 
+                        borderRadius: '8px', 
+                        padding: '2px 10px', 
+                        minWidth: '36px', 
+                        textAlign: 'center', 
+                        backgroundColor: '#ffffff',
+                        fontSize: '11px',
+                        fontWeight: '700'
+                      }}>{part.quantity} pcs</span>
+                    </div>
+
+                    <div className="stock-pill-catalog" style={{ backgroundColor: '#fcfcfc' }}>
+                      <span className="stock-pill-label" style={{ color: '#94a3b8' }}>ALERTE MIN</span>
+                      <span className="stock-pill-value" style={{ 
+                        border: '1px solid #e2e8f0', 
+                        borderRadius: '8px', 
+                        padding: '2px 10px', 
+                        minWidth: '36px', 
+                        textAlign: 'center', 
+                        backgroundColor: '#ffffff',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        color: '#64748b'
+                      }}>{part.min_quantity} pcs</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal for adding/editing spare parts */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content">
-            <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
-            <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Ajouter une Pièce de Rechange</h3>
-            <form onSubmit={handleAddPart}>
+          <div className="modal-content" style={{ color: 'var(--text-primary)' }}>
+            <button className="modal-close" onClick={() => setShowModal(false)}>
+              <X size={20} />
+            </button>
+            <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>
+              {editingItem ? "Modifier la Pièce" : "Ajouter une Pièce de Rechange"}
+            </h3>
+            <form onSubmit={handleFormSubmit}>
               <div className="form-group">
                 <label className="form-label">Désignation de la pièce</label>
                 <input
@@ -211,7 +376,7 @@ export default function SpareParts() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Référence Fabricant</label>
+                  <label className="form-label">Référence Fabricant / Code</label>
                   <input
                     type="text"
                     className="form-input"
@@ -222,12 +387,12 @@ export default function SpareParts() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Catégorie</label>
+                  <label className="form-label">Produit Parent / Catégorie</label>
                   <input
                     type="text"
                     className="form-input"
                     required
-                    placeholder="ex: Moteur, Électricité..."
+                    placeholder="ex: Moteur, 12000BTU WEST..."
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                   />
@@ -236,7 +401,7 @@ export default function SpareParts() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Quantité Initiale</label>
+                  <label className="form-label">Quantité en Stock</label>
                   <input
                     type="number"
                     className="form-input"
@@ -260,7 +425,7 @@ export default function SpareParts() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Prix Unitaire HT (€)</label>
+                <label className="form-label">Prix Unitaire HT (DH)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -270,11 +435,18 @@ export default function SpareParts() {
                   value={unitPrice}
                   onChange={(e) => setUnitPrice(e.target.value)}
                 />
+                {unitPrice && !isNaN(parseFloat(unitPrice)) && (
+                  <div style={{ fontSize: '11px', color: 'var(--success)', marginTop: '4px' }}>
+                    Prix TTC estimé (avec 20% TVA) : {formatCurrency(parseFloat(unitPrice) * 1.2)}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
-                <button type="submit" className="btn btn-primary">Valider</button>
+                <button type="submit" className="btn btn-blue-action">
+                  {editingItem ? "Enregistrer" : "Valider"}
+                </button>
               </div>
             </form>
           </div>
