@@ -1,5 +1,5 @@
 
--- Reset existing data to avoid key collisions
+-- Reset existing data
 truncate table public.sav_tickets cascade;
 truncate table public.debts cascade;
 truncate table public.transactions cascade;
@@ -28,14 +28,14 @@ create table if not exists public.cheques (
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Recreate transactions table with support for JSON items and flexible IDs
+-- Recreate transactions table
 drop table if exists public.transactions cascade;
 create table public.transactions (
     id text primary key,
     type text not null,
     amount decimal(12, 2) not null,
     description text,
-    partner_id uuid, -- for relationships if uuid is used
+    partner_id uuid,
     partner_name text,
     date date not null,
     payment_method text,
@@ -44,7 +44,7 @@ create table public.transactions (
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Recreate sav_tickets to match CSV
+-- Recreate sav_tickets
 drop table if exists public.sav_tickets cascade;
 create table public.sav_tickets (
     id text primary key,
@@ -109,17 +109,17 @@ insert into public.partners (id, name, type, email, phone, address, city, ice, i
 insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769608073432', 'JUYUAN', 'fournisseur', NULL, NULL, NULL, NULL, NULL, NULL) on conflict (id) do nothing;
 
 -- Seed Stock
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1769683860675', '12000BTU WEST', 'ON/OFF', 'MURAL', 0, 5, 2166.666666666667, 0) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1774972097327', '18000BTU ROCH', 'ROCH', 'ON/OFF ROCH', 0, 5, 3000, 0) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1769683845181', '9000BTU 4MELEC', 'ON/OFF', 'MURAL', 0, 5, 1833.3333333333335, 0) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1771851829901', '9000BTU ROCH', 'ROCH ON/OFF', 'ON/OFF ROCH', 0, 5, 1791.6666666666667, 0) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1775051921967', 'ST43X', 'SIVIR', 'TV', 0, 5, 0, 0) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1773396015262', 'SV09IAC', 'SIVIR', '9000BTU INVERTER', 0, 5, 1121.2166666666667, 0) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1773396078915', 'SV12IAC', 'SIVIR', '12000BTU INVERTER', 0, 5, 1121.2166666666667, 0) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1770127083008', 'SV7900WF SIVIR', 'SIVIR', 'MAL AUTO', 0, 5, 756.6666666666667, 4) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1775054881472', 'SV8900WF SIVIR', 'SIVIR', 'MAL AUTO', 0, 5, 756.6666666666667, 1) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1773397719798', 'TESTE', 'CL', 'CL', 0, 5, 28988.333333333336, 0) on conflict (id) do nothing;
-insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1779106028193', 'TRIO ENCASTRABLE', 'SIVIR', 'ENCASTRABLE', 0, 5, 2125, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1769683860675', '12000BTU WEST', 'ON/OFF', 'MURAL', 25, 5, 2166.666666666667, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1774972097327', '18000BTU ROCH', 'ROCH', 'ON/OFF ROCH', 25, 5, 3000, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1769683845181', '9000BTU 4MELEC', 'ON/OFF', 'MURAL', 25, 5, 1833.3333333333335, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1771851829901', '9000BTU ROCH', 'ROCH ON/OFF', 'ON/OFF ROCH', 25, 5, 1791.6666666666667, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1775051921967', 'ST43X', 'SIVIR', 'TV', 23, 5, 0, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1773396015262', 'SV09IAC', 'SIVIR', '9000BTU INVERTER', 25, 5, 1121.2166666666667, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1773396078915', 'SV12IAC', 'SIVIR', '12000BTU INVERTER', 25, 5, 1121.2166666666667, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1770127083008', 'SV7900WF SIVIR', 'SIVIR', 'MAL AUTO', 25, 5, 756.6666666666667, 4) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1775054881472', 'SV8900WF SIVIR', 'SIVIR', 'MAL AUTO', 23, 5, 756.6666666666667, 1) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1773397719798', 'TESTE', 'CL', 'CL', 16, 5, 28988.333333333336, 0) on conflict (id) do nothing;
+insert into public.stock (id, name, sku, category, quantity, min_quantity, unit_price, declassed_quantity) values ('prod-1779106028193', 'TRIO ENCASTRABLE', 'SIVIR', 'ENCASTRABLE', 7, 5, 2125, 0) on conflict (id) do nothing;
 
 -- Seed SAV Tickets
 insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1770127097230', 'BOUCHAIB DAIKO', 'ent-1769607969825', 'SV7900WF', 'prod-1770127083008', 'SAV-097230', 'ECRAN AFFICHEUR', NULL, 350, 'résolu', '2026-02-03', '2026-02-23') on conflict (id) do nothing;

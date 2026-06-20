@@ -502,7 +502,7 @@ export const mockStock = [
     "name": "12000BTU WEST",
     "sku": "ON/OFF",
     "category": "MURAL",
-    "quantity": 0,
+    "quantity": 25,
     "min_quantity": 5,
     "unit_price": 2166.666666666667,
     "declassed_quantity": 0
@@ -512,7 +512,7 @@ export const mockStock = [
     "name": "18000BTU ROCH",
     "sku": "ROCH",
     "category": "ON/OFF ROCH",
-    "quantity": 0,
+    "quantity": 25,
     "min_quantity": 5,
     "unit_price": 3000,
     "declassed_quantity": 0
@@ -522,7 +522,7 @@ export const mockStock = [
     "name": "9000BTU 4MELEC",
     "sku": "ON/OFF",
     "category": "MURAL",
-    "quantity": 0,
+    "quantity": 25,
     "min_quantity": 5,
     "unit_price": 1833.3333333333335,
     "declassed_quantity": 0
@@ -532,7 +532,7 @@ export const mockStock = [
     "name": "9000BTU ROCH",
     "sku": "ROCH ON/OFF",
     "category": "ON/OFF ROCH",
-    "quantity": 0,
+    "quantity": 25,
     "min_quantity": 5,
     "unit_price": 1791.6666666666667,
     "declassed_quantity": 0
@@ -542,7 +542,7 @@ export const mockStock = [
     "name": "ST43X",
     "sku": "SIVIR",
     "category": "TV",
-    "quantity": 0,
+    "quantity": 23,
     "min_quantity": 5,
     "unit_price": 0,
     "declassed_quantity": 0
@@ -552,7 +552,7 @@ export const mockStock = [
     "name": "SV09IAC",
     "sku": "SIVIR",
     "category": "9000BTU INVERTER",
-    "quantity": 0,
+    "quantity": 25,
     "min_quantity": 5,
     "unit_price": 1121.2166666666667,
     "declassed_quantity": 0
@@ -562,7 +562,7 @@ export const mockStock = [
     "name": "SV12IAC",
     "sku": "SIVIR",
     "category": "12000BTU INVERTER",
-    "quantity": 0,
+    "quantity": 25,
     "min_quantity": 5,
     "unit_price": 1121.2166666666667,
     "declassed_quantity": 0
@@ -572,7 +572,7 @@ export const mockStock = [
     "name": "SV7900WF SIVIR",
     "sku": "SIVIR",
     "category": "MAL AUTO",
-    "quantity": 0,
+    "quantity": 25,
     "min_quantity": 5,
     "unit_price": 756.6666666666667,
     "declassed_quantity": 4
@@ -582,7 +582,7 @@ export const mockStock = [
     "name": "SV8900WF SIVIR",
     "sku": "SIVIR",
     "category": "MAL AUTO",
-    "quantity": 0,
+    "quantity": 23,
     "min_quantity": 5,
     "unit_price": 756.6666666666667,
     "declassed_quantity": 1
@@ -592,7 +592,7 @@ export const mockStock = [
     "name": "TESTE",
     "sku": "CL",
     "category": "CL",
-    "quantity": 0,
+    "quantity": 16,
     "min_quantity": 5,
     "unit_price": 28988.333333333336,
     "declassed_quantity": 0
@@ -602,7 +602,7 @@ export const mockStock = [
     "name": "TRIO ENCASTRABLE",
     "sku": "SIVIR",
     "category": "ENCASTRABLE",
-    "quantity": 0,
+    "quantity": 7,
     "min_quantity": 5,
     "unit_price": 2125,
     "declassed_quantity": 0
