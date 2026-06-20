@@ -1,20 +1,56 @@
 
--- Reset existing data
-truncate table public.sav_tickets cascade;
-truncate table public.debts cascade;
-truncate table public.transactions cascade;
-truncate table public.stock cascade;
-truncate table public.partners cascade;
+-- Drop existing tables to recreate with correct data types
+drop table if exists public.sav_tickets cascade;
+drop table if exists public.debts cascade;
+drop table if exists public.cheques cascade;
+drop table if exists public.transactions cascade;
+drop table if exists public.stock cascade;
+drop table if exists public.partners cascade;
 
--- Alter tables to match exact CSV schemas if necessary
-alter table public.partners add column if not exists city text;
-alter table public.partners add column if not exists ice text;
-alter table public.partners add column if not exists if_id text;
+-- 1. PARTNERS (using text IDs from CSV)
+create table public.partners (
+    id text primary key,
+    name text not null,
+    type text not null,
+    email text,
+    phone text,
+    address text,
+    city text,
+    ice text,
+    if_id text,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
-alter table public.stock add column if not exists declassed_quantity integer default 0;
+-- 2. STOCK
+create table public.stock (
+    id text primary key,
+    name text not null,
+    sku text not null,
+    category text not null,
+    quantity integer default 0 not null,
+    min_quantity integer default 5 not null,
+    unit_price decimal(12, 2) default 0.00 not null,
+    declassed_quantity integer default 0 not null,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
--- Create cheques table
-create table if not exists public.cheques (
+-- 3. TRANSACTIONS
+create table public.transactions (
+    id text primary key,
+    type text not null,
+    amount decimal(12, 2) not null,
+    description text,
+    partner_id text references public.partners(id) on delete set null,
+    partner_name text,
+    date date not null,
+    payment_method text,
+    status text not null,
+    items jsonb,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 4. CHEQUES
+create table public.cheques (
     id text primary key,
     type text not null,
     reference text,
@@ -28,24 +64,7 @@ create table if not exists public.cheques (
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Recreate transactions table
-drop table if exists public.transactions cascade;
-create table public.transactions (
-    id text primary key,
-    type text not null,
-    amount decimal(12, 2) not null,
-    description text,
-    partner_id uuid,
-    partner_name text,
-    date date not null,
-    payment_method text,
-    status text not null,
-    items jsonb,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- Recreate sav_tickets
-drop table if exists public.sav_tickets cascade;
+-- 5. SAV TICKETS
 create table public.sav_tickets (
     id text primary key,
     client_name text not null,
@@ -60,7 +79,6 @@ create table public.sav_tickets (
     created_at date,
     updated_at date
 );
-
 -- Seed Partners
 insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769607910689', 'ESPACE STEEL', 'client', 'info@espacesteel.com', NULL, 'MEDIOUNA', 'CASABLANCA', '001541789000023', '2265372') on conflict (id) do nothing;
 insert into public.partners (id, name, type, email, phone, address, city, ice, if_id) values ('ent-1769607942478', 'MY ELECTRO', 'client', NULL, NULL, NULL, 'SETTAT', NULL, NULL) on conflict (id) do nothing;
