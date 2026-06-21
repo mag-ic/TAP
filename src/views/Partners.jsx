@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockPartners, mockTransactions, mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Plus, Search, MapPin, RefreshCw, Download, Pencil, Trash2, X, Upload, ArrowLeft, Mail, Phone, Calendar, Landmark, CreditCard, DollarSign, Clock } from 'lucide-react';
+import { Plus, Search, MapPin, RefreshCw, Download, Pencil, Trash2, X, Upload, ArrowLeft, Mail, Phone, Calendar, Landmark, CreditCard, DollarSign, Clock, FileText } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
 
 
@@ -359,21 +359,262 @@ export default function Partners() {
 
   return (
     <div className="stock-page-container">
-      {selectedPartner ? (
-        /* Detailed Partner View */
-        <>
-          {/* Header section matching image */}
-          <div className="catalog-header" style={{ marginBottom: '24px' }}>
-            <div className="catalog-title-wrapper">
-              <button 
-                className="btn btn-white" 
-                onClick={() => setSelectedPartner(null)} 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '12px', padding: '8px 16px', borderRadius: '10px' }}
-              >
-                <ArrowLeft size={16} /> Retour à la liste
-              </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <h1 style={{ margin: 0 }}>{selectedPartner.name.toUpperCase()}</h1>
+      {/* Catalog Header */}
+      <div className="catalog-header">
+        <div className="catalog-title-wrapper">
+          <h1>Partenaires</h1>
+          <p className="catalog-subtitle">Gérez votre écosystème de clients et fournisseurs.</p>
+        </div>
+        <div className="catalog-header-actions">
+          <input
+            type="file"
+            id="csv-import-partners-input"
+            accept=".csv"
+            style={{ display: 'none' }}
+            onChange={handleImportCSV}
+          />
+          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-partners-input').click()}>
+            <Upload size={16} /> IMPORTER CSV
+          </button>
+          <button className="btn btn-white" onClick={handleExportCSV}>
+            <Download size={16} /> EXPORTER CSV
+          </button>
+          <button className="btn btn-blue-action" onClick={handleAddNewClick}>
+            <Plus size={16} /> NOUVEAU {filterType === 'client' ? 'CLIENT' : 'FOURNISSEUR'}
+          </button>
+        </div>
+      </div>
+
+      {/* Filter and Search bar */}
+      <div className="catalog-filter-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+        {/* Client/Supplier Switch Tab */}
+        <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
+          <button 
+            className={`tab-btn ${filterType === 'client' ? 'active' : ''}`}
+            style={{ 
+              textTransform: 'uppercase', 
+              fontSize: '11px', 
+              letterSpacing: '0.5px',
+              padding: '8px 16px',
+              borderRadius: '10px',
+              backgroundColor: filterType === 'client' ? '#2563eb' : 'transparent',
+              color: filterType === 'client' ? '#ffffff' : '#64748b',
+              boxShadow: filterType === 'client' ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
+              transition: 'all 0.2s ease',
+              border: 'none',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+            onClick={() => setFilterType('client')}
+          >
+            Clients
+          </button>
+          <button 
+            className={`tab-btn ${filterType === 'fournisseur' ? 'active' : ''}`}
+            style={{ 
+              textTransform: 'uppercase', 
+              fontSize: '11px', 
+              letterSpacing: '0.5px',
+              padding: '8px 16px',
+              borderRadius: '10px',
+              backgroundColor: filterType === 'fournisseur' ? '#2563eb' : 'transparent',
+              color: filterType === 'fournisseur' ? '#ffffff' : '#64748b',
+              boxShadow: filterType === 'fournisseur' ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
+              transition: 'all 0.2s ease',
+              border: 'none',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+            onClick={() => setFilterType('fournisseur')}
+          >
+            Fournisseurs
+          </button>
+        </div>
+
+        {/* Search Input */}
+        <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
+          <Search size={18} className="search-icon" style={{ color: '#94a3b8' }} />
+          <input
+            type="text"
+            placeholder="Recherche par nom..."
+            className="form-input search-input-catalog"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        {/* City Filter Dropdown */}
+        <div className="search-input-wrapper" style={{ width: '200px', flexShrink: 0 }}>
+          <MapPin size={18} className="search-icon" style={{ color: '#94a3b8' }} />
+          <select
+            className="select-category-catalog"
+            style={{ paddingLeft: '42px', width: '100%' }}
+            value={filterCity}
+            onChange={(e) => setFilterCity(e.target.value)}
+          >
+            <option value="all">Toutes Villes</option>
+            {cities.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
+        <button 
+          className="btn btn-white" 
+          onClick={fetchPartners} 
+          title="Actualiser les données"
+          style={{ padding: '12px', borderRadius: '12px' }}
+        >
+          <RefreshCw size={16} />
+        </button>
+      </div>
+
+      {/* Partners List Table */}
+      <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500' }}>
+            Chargement des partenaires...
+          </div>
+        ) : filteredPartners.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500', fontStyle: 'italic' }}>
+            Aucun partenaire trouvé.
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>PARTENAIRE</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>VILLE</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>VOLUME D'AFFAIRES</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>ENCOURS (RESTE)</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPartners.map((partner) => {
+                  const { volume, encours } = getPartnerMetrics(partner);
+
+                  return (
+                    <tr 
+                      key={partner.id} 
+                      style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}
+                      onClick={() => {
+                        setSelectedPartner(partner);
+                        setDetailTab('transactions');
+                      }}
+                    >
+                      <td style={{ padding: '20px 16px' }}>
+                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>{partner.name.toUpperCase()}</div>
+                        <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginTop: '2px' }}>{partner.type}</div>
+                      </td>
+                      <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600', fontSize: '13px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <MapPin size={14} style={{ color: '#cbd5e1' }} />
+                          <span>{partner.city ? partner.city.toUpperCase() : '-'}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '20px 16px', fontWeight: '700', color: '#0f172a', fontSize: '14px' }}>
+                        {formatCurrency(volume)}
+                      </td>
+                      <td style={{ padding: '20px 16px', fontWeight: '700', color: encours > 0 ? '#ef4444' : '#10b981', fontSize: '14px' }}>
+                        {formatCurrency(encours)}
+                      </td>
+                      <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
+                          <button 
+                            className="action-icon-btn" 
+                            style={{ color: '#cbd5e1', cursor: 'pointer' }}
+                            onClick={(e) => handleEditClick(partner, e)} 
+                            title="Modifier"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button 
+                            className="action-icon-btn delete" 
+                            style={{ color: '#cbd5e1', cursor: 'pointer' }}
+                            onClick={(e) => handleDeleteClick(partner.id, e)} 
+                            title="Supprimer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Detailed Partner Popup Overlay */}
+      {selectedPartner && (
+        <div 
+          className="modal-overlay" 
+          style={{ 
+            zIndex: 999, 
+            overflowY: 'auto', 
+            display: 'flex', 
+            alignItems: 'flex-start', 
+            padding: '40px 20px', 
+            justifyContent: 'center',
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(8px)'
+          }} 
+          onClick={() => setSelectedPartner(null)}
+        >
+          <div 
+            className="modal-content" 
+            style={{ 
+              width: '1200px', 
+              maxWidth: '95%', 
+              maxHeight: 'none', 
+              overflowY: 'visible', 
+              backgroundColor: '#f8fafc', 
+              padding: '32px',
+              borderRadius: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #e2e8f0',
+              color: '#0f172a',
+              position: 'relative',
+              animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              margin: 'auto 0'
+            }} 
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              className="modal-close" 
+              onClick={() => setSelectedPartner(null)} 
+              style={{ 
+                position: 'absolute', 
+                top: '24px', 
+                right: '24px', 
+                background: 'rgba(15, 23, 42, 0.05)', 
+                border: 'none', 
+                borderRadius: '50%', 
+                width: '36px', 
+                height: '36px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                cursor: 'pointer',
+                color: '#64748b',
+                zIndex: 10,
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.05)'}
+            >
+              <X size={20} />
+            </button>
+
+            {/* Header section */}
+            <div style={{ marginBottom: '24px', paddingRight: '48px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                <h1 style={{ margin: 0, fontSize: '28px', color: '#0f172a', fontWeight: '800' }}>{selectedPartner.name.toUpperCase()}</h1>
                 <span className={`badge ${selectedPartner.type === 'client' ? 'badge-client' : 'badge-supplier'}`} style={{
                   fontSize: '11px',
                   fontWeight: '700',
@@ -393,503 +634,316 @@ export default function Partners() {
                   <Pencil size={14} /> Modifier
                 </button>
               </div>
-              <p className="catalog-subtitle" style={{ marginTop: '4px' }}>Fiche partenaire et historique financier complet.</p>
+              <p style={{ marginTop: '6px', color: '#64748b', margin: '4px 0 0 0' }}>Fiche partenaire et historique financier complet.</p>
             </div>
-          </div>
 
-          {/* Info Grid & Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', marginBottom: '24px' }}>
-            {/* Info Card */}
-            <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700', color: '#0f172a', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
-                Coordonnées & Infos
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <MapPin size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>VILLE / RÉGION</div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.city ? selectedPartner.city.toUpperCase() : '-'}</div>
+            {/* Info Grid & Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', marginBottom: '24px' }}>
+              {/* Info Card */}
+              <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700', color: '#0f172a', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+                  Coordonnées & Infos
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <MapPin size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>VILLE / RÉGION</div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.city ? selectedPartner.city.toUpperCase() : '-'}</div>
+                    </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <FileText size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>ICE</div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.ice || '-'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FileText size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>ICE</div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.ice || '-'}</div>
+                    </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <FileText size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>IDENTIFIANT FISCAL (IF)</div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.if_id || '-'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FileText size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>IDENTIFIANT FISCAL (IF)</div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.if_id || '-'}</div>
+                    </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Phone size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>TÉLÉPHONE</div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.phone || '-'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Phone size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>TÉLÉPHONE</div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.phone || '-'}</div>
+                    </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Mail size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>EMAIL</div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', wordBreak: 'break-all' }}>{selectedPartner.email || '-'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Mail size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>EMAIL</div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', wordBreak: 'break-all' }}>{selectedPartner.email || '-'}</div>
+                    </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <MapPin size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>ADRESSE</div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.address || '-'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <MapPin size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>ADRESSE</div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>{selectedPartner.address || '-'}</div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Stats & History Card */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* 3 Metrics Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                {/* Card 1 */}
-                {(() => {
-                  const partnerTxs = transactions.filter(t => t.partner_name?.toLowerCase() === selectedPartner.name?.toLowerCase());
-                  let totalInvoiced = 0;
-                  let totalPaid = 0;
-                  let totalRemaining = 0;
+              {/* Stats & History Card */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* 3 Metrics Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                  {(() => {
+                    const partnerTxs = transactions.filter(t => t.partner_name?.toLowerCase() === selectedPartner.name?.toLowerCase());
+                    let totalInvoiced = 0;
+                    let totalPaid = 0;
+                    let totalRemaining = 0;
 
-                  partnerTxs.forEach(t => {
-                    const { total, regle, reste } = getTxMetrics(t);
-                    totalInvoiced += total;
-                    totalPaid += regle;
-                    totalRemaining += reste;
-                  });
+                    partnerTxs.forEach(t => {
+                      const { total, regle, reste } = getTxMetrics(t);
+                      totalInvoiced += total;
+                      totalPaid += regle;
+                      totalRemaining += reste;
+                    });
 
-                  return (
-                    <>
-                      <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '20px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-                        <div style={{ padding: '12px', borderRadius: '14px', backgroundColor: '#eff6ff', color: '#2563eb' }}>
-                          <DollarSign size={22} />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
-                            {selectedPartner.type === 'client' ? 'Total Facturé' : 'Total Achat'}
+                    return (
+                      <>
+                        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '20px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
+                          <div style={{ padding: '12px', borderRadius: '14px', backgroundColor: '#eff6ff', color: '#2563eb' }}>
+                            <DollarSign size={22} />
                           </div>
-                          <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>
-                            {formatCurrency(totalInvoiced)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Card 2 */}
-                      <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '20px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-                        <div style={{ padding: '12px', borderRadius: '14px', backgroundColor: '#f0fdf4', color: '#10b981' }}>
-                          <CreditCard size={22} />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Total Payé</div>
-                          <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>
-                            {formatCurrency(totalPaid)}
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
+                              {selectedPartner.type === 'client' ? 'Total Facturé' : 'Total Achat'}
+                            </div>
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>
+                              {formatCurrency(totalInvoiced)}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Card 3 */}
-                      <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '20px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-                        <div style={{ padding: '12px', borderRadius: '14px', backgroundColor: totalRemaining > 0 ? '#fef2f2' : '#f0fdf4', color: totalRemaining > 0 ? '#ef4444' : '#10b981' }}>
-                          <Clock size={22} />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Reste à Payer</div>
-                          <div style={{ fontSize: '18px', fontWeight: '800', color: totalRemaining > 0 ? '#ef4444' : '#10b981', marginTop: '2px' }}>
-                            {formatCurrency(totalRemaining)}
+                        {/* Card 2 */}
+                        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '20px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
+                          <div style={{ padding: '12px', borderRadius: '14px', backgroundColor: '#f0fdf4', color: '#10b981' }}>
+                            <CreditCard size={22} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Total Payé</div>
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>
+                              {formatCurrency(totalPaid)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
 
-              {/* History Table Container */}
-              <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', flexGrow: 1, boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-                {(() => {
-                  const partnerTxs = transactions.filter(t => t.partner_name?.toLowerCase() === selectedPartner.name?.toLowerCase());
-                  const partnerCheques = cheques.filter(c => c.partner_name?.toLowerCase() === selectedPartner.name?.toLowerCase());
-
-                  return (
-                    <>
-                      {/* Tabs for detail view */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', gap: '20px' }}>
-                          <button 
-                            onClick={() => setDetailTab('transactions')}
-                            style={{
-                              border: 'none',
-                              background: 'none',
-                              fontSize: '14px',
-                              fontWeight: '700',
-                              color: detailTab === 'transactions' ? '#2563eb' : '#64748b',
-                              borderBottom: detailTab === 'transactions' ? '2px solid #2563eb' : 'none',
-                              paddingBottom: '8px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Factures / Transactions ({partnerTxs.length})
-                          </button>
-                          <button 
-                            onClick={() => setDetailTab('cheques')}
-                            style={{
-                              border: 'none',
-                              background: 'none',
-                              fontSize: '14px',
-                              fontWeight: '700',
-                              color: detailTab === 'cheques' ? '#2563eb' : '#64748b',
-                              borderBottom: detailTab === 'cheques' ? '2px solid #2563eb' : 'none',
-                              paddingBottom: '8px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Règlements / Chèques ({partnerCheques.length})
-                          </button>
+                        {/* Card 3 */}
+                        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '20px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
+                          <div style={{ padding: '12px', borderRadius: '14px', backgroundColor: totalRemaining > 0 ? '#fef2f2' : '#f0fdf4', color: totalRemaining > 0 ? '#ef4444' : '#10b981' }}>
+                            <Clock size={22} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Reste à Payer</div>
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: totalRemaining > 0 ? '#ef4444' : '#10b981', marginTop: '2px' }}>
+                              {formatCurrency(totalRemaining)}
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      </>
+                    );
+                  })()}
+                </div>
 
-                      {/* Transactions Tab */}
-                      {detailTab === 'transactions' && (
-                        <div className="table-container">
-                          {partnerTxs.length === 0 ? (
-                            <div style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
-                              Aucune transaction enregistrée pour ce partenaire.
-                            </div>
-                          ) : (
-                            <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                              <thead>
-                                <tr>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>DATE</th>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>RÉFÉRENCE / DESCRIPTION</th>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'right' }}>MONTANT GLOBAL</th>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'right' }}>RÉGLÉ</th>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'right' }}>RESTE</th>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'center' }}>STATUT</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {partnerTxs.map(t => {
-                                  const { total, regle, reste } = getTxMetrics(t);
-                                  const statusStr = t.status === 'confirmé' ? 'Payé' : (t.status === 'annulé' ? 'Annulé' : (regle > 0 ? 'Partiel' : 'Impayé'));
-                                  const statusColor = t.status === 'confirmé' ? '#10b981' : (t.status === 'annulé' ? '#94a3b8' : (regle > 0 ? '#f59e0b' : '#ef4444'));
+                {/* History Table Container */}
+                <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', flexGrow: 1, boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
+                  {(() => {
+                    const partnerTxs = transactions.filter(t => t.partner_name?.toLowerCase() === selectedPartner.name?.toLowerCase());
+                    const partnerCheques = cheques.filter(c => c.partner_name?.toLowerCase() === selectedPartner.name?.toLowerCase());
 
-                                  return (
-                                    <tr key={t.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                      <td style={{ padding: '12px', fontSize: '13px', color: '#334155', textAlign: 'left' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <Calendar size={14} style={{ color: '#94a3b8' }} />
-                                          <span>{t.date}</span>
-                                        </div>
-                                      </td>
-                                      <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#0f172a', textAlign: 'left' }}>
-                                        <div>{getBCReference(t.description)}</div>
-                                        <div style={{ fontSize: '11px', fontWeight: '500', color: '#64748b', marginTop: '2px' }}>{t.description}</div>
-                                      </td>
-                                      <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#0f172a', textAlign: 'right' }}>
-                                        {formatCurrency(total)}
-                                      </td>
-                                      <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#10b981', textAlign: 'right' }}>
-                                        {formatCurrency(regle)}
-                                      </td>
-                                      <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: reste > 0 ? '#ef4444' : '#10b981', textAlign: 'right' }}>
-                                        {formatCurrency(reste)}
-                                      </td>
-                                      <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <span style={{
-                                          fontSize: '11px',
-                                          fontWeight: '700',
-                                          padding: '4px 8px',
-                                          borderRadius: '6px',
-                                          textTransform: 'uppercase',
-                                          backgroundColor: statusColor + '15',
-                                          color: statusColor
-                                        }}>
-                                          {statusStr}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          )}
+                    return (
+                      <>
+                        {/* Tabs for detail view */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '16px' }}>
+                          <div style={{ display: 'flex', gap: '20px' }}>
+                            <button 
+                              onClick={() => setDetailTab('transactions')}
+                              style={{
+                                border: 'none',
+                                background: 'none',
+                                fontSize: '14px',
+                                fontWeight: '700',
+                                color: detailTab === 'transactions' ? '#2563eb' : '#64748b',
+                                borderBottom: detailTab === 'transactions' ? '2px solid #2563eb' : 'none',
+                                paddingBottom: '8px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Factures / Transactions ({partnerTxs.length})
+                            </button>
+                            <button 
+                              onClick={() => setDetailTab('cheques')}
+                              style={{
+                                border: 'none',
+                                background: 'none',
+                                fontSize: '14px',
+                                fontWeight: '700',
+                                color: detailTab === 'cheques' ? '#2563eb' : '#64748b',
+                                borderBottom: detailTab === 'cheques' ? '2px solid #2563eb' : 'none',
+                                paddingBottom: '8px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Règlements / Chèques ({partnerCheques.length})
+                            </button>
+                          </div>
                         </div>
-                      )}
 
-                      {/* Cheques Tab */}
-                      {detailTab === 'cheques' && (
-                        <div className="table-container">
-                          {partnerCheques.length === 0 ? (
-                            <div style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
-                              Aucun chèque/règlement enregistré pour ce partenaire.
-                            </div>
-                          ) : (
-                            <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                              <thead>
-                                <tr>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>DATE D'ÉCHÉANCE</th>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>NUMÉRO / RÉFÉRENCE</th>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>BANQUE</th>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'right' }}>MONTANT</th>
-                                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'center' }}>STATUT</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {partnerCheques.map(c => {
-                                  const statusColor = c.status === 'recouvré' ? '#10b981' : (c.status === 'impayé' ? '#ef4444' : '#f59e0b');
+                        {/* Transactions Tab */}
+                        {detailTab === 'transactions' && (
+                          <div className="table-container">
+                            {partnerTxs.length === 0 ? (
+                              <div style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                                Aucune transaction enregistrée pour ce partenaire.
+                              </div>
+                            ) : (
+                              <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                  <tr>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>DATE</th>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>RÉFÉRENCE / DESCRIPTION</th>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'right' }}>MONTANT GLOBAL</th>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'right' }}>RÉGLÉ</th>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'right' }}>RESTE</th>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'center' }}>STATUT</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {partnerTxs.map(t => {
+                                    const { total, regle, reste } = getTxMetrics(t);
+                                    const statusStr = t.status === 'confirmé' ? 'Payé' : (t.status === 'annulé' ? 'Annulé' : (regle > 0 ? 'Partiel' : 'Impayé'));
+                                    const statusColor = t.status === 'confirmé' ? '#10b981' : (t.status === 'annulé' ? '#94a3b8' : (regle > 0 ? '#f59e0b' : '#ef4444'));
 
-                                  return (
-                                    <tr key={c.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                      <td style={{ padding: '12px', fontSize: '13px', color: '#334155', textAlign: 'left' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <Calendar size={14} style={{ color: '#94a3b8' }} />
-                                          <span>{c.due_date || '-'}</span>
-                                        </div>
-                                      </td>
-                                      <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#0f172a', textAlign: 'left' }}>
-                                        <div>Chèque N° {c.number || 'N/A'}</div>
-                                        <div style={{ fontSize: '11px', fontWeight: '500', color: '#64748b', marginTop: '2px' }}>Réf: {c.reference || 'N/A'}</div>
-                                      </td>
-                                      <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#334155', textAlign: 'left' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <Landmark size={14} style={{ color: '#cbd5e1' }} />
-                                          <span>{c.bank ? c.bank.toUpperCase() : '-'}</span>
-                                        </div>
-                                      </td>
-                                      <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#0f172a', textAlign: 'right' }}>
-                                        {formatCurrency(c.amount)}
-                                      </td>
-                                      <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <span style={{
-                                          fontSize: '11px',
-                                          fontWeight: '700',
-                                          padding: '4px 8px',
-                                          borderRadius: '6px',
-                                          textTransform: 'uppercase',
-                                          backgroundColor: statusColor + '15',
-                                          color: statusColor
-                                        }}>
-                                          {c.status}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
+                                    return (
+                                      <tr key={t.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                        <td style={{ padding: '12px', fontSize: '13px', color: '#334155', textAlign: 'left' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Calendar size={14} style={{ color: '#94a3b8' }} />
+                                            <span>{t.date}</span>
+                                          </div>
+                                        </td>
+                                        <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#0f172a', textAlign: 'left' }}>
+                                          <div>{getBCReference(t.description)}</div>
+                                          <div style={{ fontSize: '11px', fontWeight: '500', color: '#64748b', marginTop: '2px' }}>{t.description}</div>
+                                        </td>
+                                        <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#0f172a', textAlign: 'right' }}>
+                                          {formatCurrency(total)}
+                                        </td>
+                                        <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#10b981', textAlign: 'right' }}>
+                                          {formatCurrency(regle)}
+                                        </td>
+                                        <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: reste > 0 ? '#ef4444' : '#10b981', textAlign: 'right' }}>
+                                          {formatCurrency(reste)}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                          <span style={{
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            padding: '4px 8px',
+                                            borderRadius: '6px',
+                                            textTransform: 'uppercase',
+                                            backgroundColor: statusColor + '15',
+                                            color: statusColor
+                                          }}>
+                                            {statusStr}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Cheques Tab */}
+                        {detailTab === 'cheques' && (
+                          <div className="table-container">
+                            {partnerCheques.length === 0 ? (
+                              <div style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                                Aucun chèque/règlement enregistré pour ce partenaire.
+                              </div>
+                            ) : (
+                              <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                  <tr>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>DATE D'ÉCHÉANCE</th>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>NUMÉRO / RÉFÉRENCE</th>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'left' }}>BANQUE</th>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'right' }}>MONTANT</th>
+                                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px', textAlign: 'center' }}>STATUT</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {partnerCheques.map(c => {
+                                    const statusColor = c.status === 'recouvré' ? '#10b981' : (c.status === 'impayé' ? '#ef4444' : '#f59e0b');
+
+                                    return (
+                                      <tr key={c.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                        <td style={{ padding: '12px', fontSize: '13px', color: '#334155', textAlign: 'left' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Calendar size={14} style={{ color: '#94a3b8' }} />
+                                            <span>{c.due_date || '-'}</span>
+                                          </div>
+                                        </td>
+                                        <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#0f172a', textAlign: 'left' }}>
+                                          <div>Chèque N° {c.number || 'N/A'}</div>
+                                          <div style={{ fontSize: '11px', fontWeight: '500', color: '#64748b', marginTop: '2px' }}>Réf: {c.reference || 'N/A'}</div>
+                                        </td>
+                                        <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#334155', textAlign: 'left' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Landmark size={14} style={{ color: '#cbd5e1' }} />
+                                            <span>{c.bank ? c.bank.toUpperCase() : '-'}</span>
+                                          </div>
+                                        </td>
+                                        <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#0f172a', textAlign: 'right' }}>
+                                          {formatCurrency(c.amount)}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                          <span style={{
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            padding: '4px 8px',
+                                            borderRadius: '6px',
+                                            textTransform: 'uppercase',
+                                            backgroundColor: statusColor + '15',
+                                            color: statusColor
+                                          }}>
+                                            {c.status}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
-          </div>
-        </>
-      ) : (
-        /* Partners List View */
-        <>
-          {/* Header section matching image */}
-          <div className="catalog-header">
-            <div className="catalog-title-wrapper">
-              <h1>Partenaires</h1>
-              <p className="catalog-subtitle">Gérez votre écosystème de clients et fournisseurs.</p>
-            </div>
-            <div className="catalog-header-actions">
-              <input
-                type="file"
-                id="csv-import-partners-input"
-                accept=".csv"
-                style={{ display: 'none' }}
-                onChange={handleImportCSV}
-              />
-              <button className="btn btn-white" onClick={() => document.getElementById('csv-import-partners-input').click()}>
-                <Upload size={16} /> IMPORTER CSV
-              </button>
-              <button className="btn btn-white" onClick={handleExportCSV}>
-                <Download size={16} /> EXPORTER CSV
-              </button>
-              <button className="btn btn-blue-action" onClick={handleAddNewClick}>
-                <Plus size={16} /> NOUVEAU {filterType === 'client' ? 'CLIENT' : 'FOURNISSEUR'}
+
+            {/* Close action button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setSelectedPartner(null)}>
+                Fermer
               </button>
             </div>
           </div>
-
-          {/* Filter and Search bar matching image */}
-          <div className="catalog-filter-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            {/* Client/Supplier Switch Tab */}
-            <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
-              <button 
-                className={`tab-btn ${filterType === 'client' ? 'active' : ''}`}
-                style={{ 
-                  textTransform: 'uppercase', 
-                  fontSize: '11px', 
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  borderRadius: '10px',
-                  backgroundColor: filterType === 'client' ? '#2563eb' : 'transparent',
-                  color: filterType === 'client' ? '#ffffff' : '#64748b',
-                  boxShadow: filterType === 'client' ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
-                  transition: 'all 0.2s ease',
-                  border: 'none',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-                onClick={() => setFilterType('client')}
-              >
-                Clients
-              </button>
-              <button 
-                className={`tab-btn ${filterType === 'fournisseur' ? 'active' : ''}`}
-                style={{ 
-                  textTransform: 'uppercase', 
-                  fontSize: '11px', 
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  borderRadius: '10px',
-                  backgroundColor: filterType === 'fournisseur' ? '#2563eb' : 'transparent',
-                  color: filterType === 'fournisseur' ? '#ffffff' : '#64748b',
-                  boxShadow: filterType === 'fournisseur' ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
-                  transition: 'all 0.2s ease',
-                  border: 'none',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-                onClick={() => setFilterType('fournisseur')}
-              >
-                Fournisseurs
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
-              <Search size={18} className="search-icon" style={{ color: '#94a3b8' }} />
-              <input
-                type="text"
-                placeholder="Recherche par nom..."
-                className="form-input search-input-catalog"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            {/* City Filter Dropdown */}
-            <div className="search-input-wrapper" style={{ width: '200px', flexShrink: 0 }}>
-              <MapPin size={18} className="search-icon" style={{ color: '#94a3b8' }} />
-              <select
-                className="select-category-catalog"
-                style={{ paddingLeft: '42px', width: '100%' }}
-                value={filterCity}
-                onChange={(e) => setFilterCity(e.target.value)}
-              >
-                <option value="all">Toutes Villes</option>
-                {cities.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-
-            <button 
-              className="btn btn-white" 
-              onClick={fetchPartners} 
-              title="Actualiser les données"
-              style={{ padding: '12px', borderRadius: '12px' }}
-            >
-              <RefreshCw size={16} />
-            </button>
-          </div>
-
-          {/* Partners List Table matching image */}
-          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-            {loading ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500' }}>
-                Chargement des partenaires...
-              </div>
-            ) : filteredPartners.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '500', fontStyle: 'italic' }}>
-                Aucun partenaire trouvé.
-              </div>
-            ) : (
-              <div className="table-container">
-                <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>PARTENAIRE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>VILLE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>VOLUME D'AFFAIRES</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>ENCOURS (RESTE)</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPartners.map((partner) => {
-                      const { volume, encours } = getPartnerMetrics(partner);
-
-                      return (
-                        <tr 
-                          key={partner.id} 
-                          style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}
-                          onClick={() => {
-                            setSelectedPartner(partner);
-                            setDetailTab('transactions');
-                          }}
-                        >
-                          <td style={{ padding: '20px 16px' }}>
-                            <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>{partner.name.toUpperCase()}</div>
-                            <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginTop: '2px' }}>{partner.type}</div>
-                          </td>
-                          <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600', fontSize: '13px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <MapPin size={14} style={{ color: '#cbd5e1' }} />
-                              <span>{partner.city ? partner.city.toUpperCase() : '-'}</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '20px 16px', fontWeight: '700', color: '#0f172a', fontSize: '14px' }}>
-                            {formatCurrency(volume)}
-                          </td>
-                          <td style={{ padding: '20px 16px', fontWeight: '700', color: encours > 0 ? '#ef4444' : '#10b981', fontSize: '14px' }}>
-                            {formatCurrency(encours)}
-                          </td>
-                          <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                            <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
-                              <button 
-                                className="action-icon-btn" 
-                                style={{ color: '#cbd5e1', cursor: 'pointer' }}
-                                onClick={(e) => handleEditClick(partner, e)} 
-                                title="Modifier"
-                              >
-                                <Pencil size={16} />
-                              </button>
-                              <button 
-                                className="action-icon-btn delete" 
-                                style={{ color: '#cbd5e1', cursor: 'pointer' }}
-                                onClick={(e) => handleDeleteClick(partner.id, e)} 
-                                title="Supprimer"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
+        </div>
       )}
 
       {/* Modal for adding/editing partners */}
