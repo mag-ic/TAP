@@ -212,9 +212,11 @@ export default function Partners() {
         return;
       }
 
-      // Map rows to partner schema
-      const itemsToInsert = parsed.rows.map(row => {
-        const name = row.name || row.nom || row['nom complet'] || row['raison sociale'] || row.partner || 'Partenaire sans nom';
+      const newItems = [];
+      const updatedItems = [];
+
+      parsed.rows.forEach(row => {
+        const name = (row.name || row.nom || row['nom complet'] || row['raison sociale'] || row.partner || 'Partenaire sans nom').trim();
         let rawType = row.type || row.role || filterType;
         let type = 'client';
         if (rawType.toLowerCase().includes('fournis') || rawType.toLowerCase().includes('supplier') || rawType.toLowerCase().includes('prov')) {
@@ -227,27 +229,53 @@ export default function Partners() {
         const ice = row.ice || null;
         const if_id = row.if || row.if_id || row['identifiant fiscal'] || null;
 
-        return {
-          id: 'ent-' + Math.floor(Math.random() * 100000000000),
-          name,
-          type,
-          email,
-          phone,
-          city,
-          address,
-          ice,
-          if_id
-        };
+        // Check if partner with the same name already exists (case-insensitive)
+        const existingPartner = partners.find(p => p.name.trim().toLowerCase() === name.toLowerCase());
+
+        if (existingPartner) {
+          updatedItems.push({
+            id: existingPartner.id,
+            name: existingPartner.name,
+            type,
+            email: email || existingPartner.email,
+            phone: phone || existingPartner.phone,
+            city: city || existingPartner.city,
+            address: address || existingPartner.address,
+            ice: ice || existingPartner.ice,
+            if_id: if_id || existingPartner.if_id
+          });
+        } else {
+          newItems.push({
+            id: 'ent-' + Math.floor(Math.random() * 100000000000),
+            name,
+            type,
+            email,
+            phone,
+            city,
+            address,
+            ice,
+            if_id
+          });
+        }
       });
 
+      const allItems = [...newItems, ...updatedItems];
+      if (allItems.length === 0) return;
+
       if (usingMockData) {
-        setPartners(prev => [...itemsToInsert, ...prev]);
-        alert(`${itemsToInsert.length} partenaires importés localement avec succès !`);
+        setPartners(prev => {
+          let nextList = [...prev];
+          updatedItems.forEach(upd => {
+            nextList = nextList.map(p => p.id === upd.id ? upd : p);
+          });
+          return [...newItems, ...nextList];
+        });
+        alert(`${newItems.length} partenaires insérés, ${updatedItems.length} mis à jour localement avec succès !`);
       } else {
         try {
-          const { error } = await supabase.from('partners').insert(itemsToInsert);
+          const { error } = await supabase.from('partners').upsert(allItems);
           if (error) throw error;
-          alert(`${itemsToInsert.length} partenaires importés dans la base de données avec succès !`);
+          alert(`${newItems.length} nouveaux partenaires importés, ${updatedItems.length} mis à jour dans la base de données avec succès !`);
           await fetchPartners();
         } catch (err) {
           alert("Erreur lors de l'importation : " + err.message);
