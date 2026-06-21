@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockPartners, mockStock } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
 import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, Download, Upload, Eye, Pencil, FileText, Trash2, X, History, MapPin, RotateCcw, Box } from 'lucide-react';
+import { parseCSV } from '../lib/csvHelper';
 
 export default function EntreesVentes({ initialTab = 'entrees' }) {
   const [transactions, setTransactions] = useState([]);
@@ -349,28 +350,134 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
 
   const handleExportCSV = () => {
     const BOM = "\uFEFF";
-    const headers = activeSubTab === 'entrees'
-      ? ["Référence BC/Avance", "Date", "Fournisseur", "Montant TTC (DH)", "Méthode", "Statut"]
-      : ["Numéro BL", "Date", "Client", "Montant TTC (DH)", "Méthode", "Statut"];
+    
+    if (activeSubTab === 'entrees') {
+      const headers = ["Référence BC/Avance", "Date", "Fournisseur", "Montant TTC (DH)", "Méthode", "Statut"];
+      const rows = filteredTxs.map(t => [
+        getBCReference(t.description),
+        t.date,
+        t.partner_name || '',
+        t.amount,
+        t.payment_method || 'Virement',
+        t.status
+      ]);
+      const csvContent = BOM + [headers.join(','), ...rows.map(e => e.map(val => `"${val}"`).join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `arrivages_export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      // totalHT,totalTTC,id,clientId,date,paymentMethod,items,clientName,deliveryNumber
+      const headers = ["totalHT", "totalTTC", "id", "clientId", "date", "paymentMethod", "items", "clientName", "deliveryNumber"];
+      const rows = filteredTxs.map(t => {
+        const totalTTC = t.amount || 0;
+        const totalHT = totalTTC / 1.2;
+        return [
+          totalHT.toFixed(2),
+          totalTTC.toFixed(2),
+          t.id,
+          t.partner_id || '',
+          t.date,
+          t.payment_method || 'Espèces',
+          t.items ? (typeof t.items === 'object' ? JSON.stringify(t.items) : t.items).replace(/"/g, '""') : '[]',
+          t.partner_name || '',
+          getBLReference(t.description)
+        ];
+      });
+      const csvContent = BOM + [headers.join(','), ...rows.map(e => e.map(val => `"${val}"`).join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `ventes_export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
-    const rows = filteredTxs.map(t => [
-      activeSubTab === 'entrees' ? getBCReference(t.description) : getBLReference(t.description),
-      t.date,
-      t.partner_name || '',
-      t.amount,
-      t.payment_method || 'Virement',
-      t.status
-    ]);
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    const csvContent = BOM + [headers.join(','), ...rows.map(e => e.map(val => `"${val}"`).join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${activeSubTab}_export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const parsed = parseCSV(text);
+      if (!parsed || parsed.rows.length === 0) {
+        alert("Le fichier CSV est vide ou invalide.");
+        return;
+      }
+
+      const newTxs = [];
+      parsed.rows.forEach(row => {
+        const id = row.id || 'inv-gen-' + Math.floor(Math.random() * 100000000000);
+        const date = row.date || new Date().toISOString().split('T')[0];
+        const clientName = row.clientname || row.clientName || row.client_name || row.client || row.partner_name || 'Client Inconnu';
+        const clientId = row.clientid || row.clientId || row.client_id || row.partner_id || null;
+        
+        let totalTTC = parseFloat((row.totalttc || row.totalTTC || row.amount || '0').toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
+        let totalHT = parseFloat((row.totalht || row.totalHT || '0').toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
+        
+        if (isNaN(totalTTC)) {
+          if (!isNaN(totalHT) && totalHT > 0) {
+            totalTTC = totalHT * 1.2;
+          } else {
+            totalTTC = 0;
+          }
+        }
+        
+        const paymentMethod = row.paymentmethod || row.paymentMethod || row.payment_method || 'Espèces';
+        const deliveryNumber = row.deliverynumber || row.deliveryNumber || row.delivery_number || row.bl_number || row.num_bl || 'BL-26-XXXX';
+        
+        let itemsStr = '[]';
+        if (row.items) {
+          try {
+            JSON.parse(row.items);
+            itemsStr = row.items;
+          } catch (err) {
+            itemsStr = JSON.stringify([{ productName: 'Article Importé', quantity: 1, costPrice: totalTTC / 1.2 }]);
+          }
+        } else {
+          itemsStr = JSON.stringify([{ productName: 'Article Importé', quantity: 1, costPrice: totalTTC / 1.2 }]);
+        }
+
+        newTxs.push({
+          id,
+          type: activeSubTab === 'entrees' ? 'achat' : 'vente',
+          amount: totalTTC,
+          description: activeSubTab === 'entrees' ? `Entrée ${deliveryNumber}` : `Facture ${deliveryNumber}`,
+          partner_id: clientId,
+          partner_name: clientName,
+          date,
+          payment_method: paymentMethod,
+          status: 'confirmé',
+          items: itemsStr
+        });
+      });
+
+      if (newTxs.length === 0) return;
+
+      if (usingMockData) {
+        setTransactions(prev => [...newTxs, ...prev]);
+        alert(`${newTxs.length} ventes importées avec succès localement !`);
+      } else {
+        try {
+          const { error } = await supabase.from('transactions').insert(newTxs);
+          if (error) throw error;
+          alert(`${newTxs.length} ventes importées avec succès dans la base de données !`);
+          await fetchData();
+        } catch (err) {
+          alert("Erreur lors de l'importation : " + err.message);
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   // Filter Transactions based on Tabs
@@ -417,6 +524,16 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
         </div>
         
         <div className="catalog-header-actions" style={{ alignItems: 'center' }}>
+          <input
+            type="file"
+            id="csv-import-sales-input"
+            accept=".csv"
+            style={{ display: 'none' }}
+            onChange={handleImportCSV}
+          />
+          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-sales-input').click()}>
+            <Upload size={16} /> IMPORTER CSV
+          </button>
           <button className="btn btn-white" onClick={handleExportCSV}>
             <Download size={16} /> EXPORTER CSV
           </button>
@@ -1081,7 +1198,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>N° BL</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>CLIENT</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'center' }}>CONTENU</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TOTAL TTC</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
@@ -1090,7 +1206,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     {filteredTxs.map((tx) => {
                       const itemsList = parseItems(tx.items);
                       const isExpanded = expandedRows[tx.id];
-
+ 
                       return (
                         <React.Fragment key={tx.id}>
                           <tr style={{ cursor: 'pointer', borderBottom: '1px solid #f8fafc' }} onClick={() => toggleRow(tx.id)}>
@@ -1110,9 +1226,6 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                                 {tx.partner_name || 'N/A'}
                               </span>
                             </td>
-                            <td style={{ padding: '20px 16px', textAlign: 'center' }}>
-                              <Box size={16} style={{ color: '#cbd5e1', margin: '0 auto' }} />
-                            </td>
                             <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
                               {formatCurrency(tx.amount)}
                             </td>
@@ -1130,11 +1243,11 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                               </div>
                             </td>
                           </tr>
-
+ 
                           {/* Expanded items row */}
                           {isExpanded && itemsList.length > 0 && (
                             <tr>
-                              <td colSpan="7" style={{ padding: '0 16px 20px 56px', backgroundColor: '#fafbfd' }}>
+                              <td colSpan="6" style={{ padding: '0 16px 20px 56px', backgroundColor: '#fafbfd' }}>
                                 <div style={{ padding: '16px', borderLeft: '3px solid #2563eb', background: '#ffffff', borderRadius: '0 12px 12px 0', border: '1px solid #e2e8f0', borderLeftWidth: '3px', marginTop: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }}>
                                   <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: '#64748b', marginBottom: '12px', letterSpacing: '0.5px' }}>Détail des Articles vendus :</div>
                                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
