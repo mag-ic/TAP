@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { formatCurrency } from '../lib/format';
-import { Plus, Search, Box, AlertTriangle, RefreshCw, Download, Pencil, Trash2, X, Network } from 'lucide-react';
+import { Plus, Search, Box, AlertTriangle, RefreshCw, Download, Pencil, Trash2, X, Network, Upload } from 'lucide-react';
+import { parseCSV } from '../lib/csvHelper';
+
 
 export default function SpareParts() {
   const [parts, setParts] = useState([]);
@@ -193,6 +195,58 @@ export default function SpareParts() {
     document.body.removeChild(link);
   };
 
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const parsed = parseCSV(text);
+      if (!parsed || parsed.rows.length === 0) {
+        alert("Le fichier CSV est vide ou invalide.");
+        return;
+      }
+
+      // Map rows to spare_parts schema
+      const itemsToInsert = parsed.rows.map(row => {
+        const name = row.name || row.nom || row['désignation'] || row.designation || 'Pièce sans nom';
+        const part_number = row.part_number || row.reference || row.ref || row['référence fabricant'] || row['référence'] || 'REF-NEW';
+        const category = row.category || row.categorie || row['produit parent'] || 'Moteur';
+        const quantity = Number(row.quantity || row.quantite || row.stock || row['stock neuf'] || 0);
+        const unit_price = Number(row.price || row.prix || row.unit_price || row['prix ht'] || 0);
+        const min_quantity = Number(row.min_quantity || row.alert || row['seuil d\'alerte'] || 2);
+
+        return {
+          id: 'part-' + Math.floor(Math.random() * 100000000000),
+          name,
+          part_number,
+          category,
+          quantity,
+          unit_price,
+          min_quantity
+        };
+      });
+
+      if (usingMockData) {
+        setParts(prev => [...itemsToInsert, ...prev]);
+        alert(`${itemsToInsert.length} pièces de rechange importées localement avec succès !`);
+      } else {
+        try {
+          const { error } = await supabase.from('spare_parts').insert(itemsToInsert);
+          if (error) throw error;
+          alert(`${itemsToInsert.length} pièces de rechange importées dans la base de données avec succès !`);
+          await fetchParts();
+        } catch (err) {
+          alert("Erreur lors de l'importation : " + err.message);
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset file input
+  };
+
+
   // Get distinct parent products/categories
   const categories = [...new Set(parts.map(p => p.category))];
 
@@ -215,6 +269,16 @@ export default function SpareParts() {
           <p className="catalog-subtitle">Gérez vos composants liés aux produits principaux.</p>
         </div>
         <div className="catalog-header-actions">
+          <input
+            type="file"
+            id="csv-import-parts-input"
+            accept=".csv"
+            style={{ display: 'none' }}
+            onChange={handleImportCSV}
+          />
+          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-parts-input').click()}>
+            <Upload size={16} /> IMPORTER CSV
+          </button>
           <button className="btn btn-white" onClick={handleExportCSV}>
             <Download size={16} /> EXPORTER CSV
           </button>

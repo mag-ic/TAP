@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockStock } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Plus, Search, Box, AlertTriangle, RefreshCw, Download, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, Search, Box, AlertTriangle, RefreshCw, Download, Pencil, Trash2, X, Upload } from 'lucide-react';
+import { parseCSV } from '../lib/csvHelper';
 
 export default function Stock() {
   const [stockItems, setStockItems] = useState([]);
@@ -209,6 +210,61 @@ export default function Stock() {
     document.body.removeChild(link);
   };
 
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const parsed = parseCSV(text);
+      if (!parsed || parsed.rows.length === 0) {
+        alert("Le fichier CSV est vide ou invalide.");
+        return;
+      }
+
+      // Map rows to stock schema
+      const itemsToInsert = parsed.rows.map(row => {
+        const name = row.nom || row.designation || row.title || row.name || 'Produit sans nom';
+        const sku = row.sku || row.reference || row.ref || 'SKU-NEW';
+        const category = row.category || row.categorie || 'Catégorie';
+        const quantity = Number(row.quantity || row.quantite || row.stock || row['stock neuf'] || 0);
+        const unit_price = Number(row.price || row.prix || row.unit_price || row['prix ht'] || 0);
+        const declassed_quantity = Number(row.declassed_quantity || row['quantite declassee'] || row['stock declasse'] || 0);
+        const declassed_price = Number(row.declassed_price || row['prix declasse'] || 0);
+        const min_quantity = Number(row.min_quantity || row.alert || row['seuil d\'alerte'] || 5);
+
+        return {
+          id: 'prod-' + Math.floor(Math.random() * 100000000000),
+          name,
+          sku,
+          category,
+          quantity,
+          unit_price,
+          declassed_quantity,
+          declassed_price,
+          min_quantity
+        };
+      });
+
+      if (usingMockData) {
+        setStockItems(prev => [...itemsToInsert, ...prev]);
+        alert(`${itemsToInsert.length} produits importés localement avec succès !`);
+      } else {
+        try {
+          const { error } = await supabase.from('stock').insert(itemsToInsert);
+          if (error) throw error;
+          alert(`${itemsToInsert.length} produits importés dans la base de données avec succès !`);
+          await fetchStock();
+        } catch (err) {
+          alert("Erreur lors de l'importation : " + err.message);
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset file input
+  };
+
   // Get distinct categories
   const categories = [...new Set(stockItems.map(item => item.category))];
 
@@ -244,6 +300,16 @@ export default function Stock() {
           <p className="catalog-subtitle">Catalogue complet de vos références.</p>
         </div>
         <div className="catalog-header-actions">
+          <input
+            type="file"
+            id="csv-import-file-input"
+            accept=".csv"
+            style={{ display: 'none' }}
+            onChange={handleImportCSV}
+          />
+          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-file-input').click()}>
+            <Upload size={16} /> IMPORTER CSV
+          </button>
           <button className="btn btn-white" onClick={handleExportCSV}>
             <Download size={16} /> EXPORTER CSV
           </button>

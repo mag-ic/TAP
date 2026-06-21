@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockPartners, mockTransactions, mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Plus, Search, MapPin, RefreshCw, Download, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, Search, MapPin, RefreshCw, Download, Pencil, Trash2, X, Upload } from 'lucide-react';
+import { parseCSV } from '../lib/csvHelper';
+
 
 export default function Partners() {
   const [partners, setPartners] = useState([]);
@@ -197,6 +199,66 @@ export default function Partners() {
     document.body.removeChild(link);
   };
 
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const parsed = parseCSV(text);
+      if (!parsed || parsed.rows.length === 0) {
+        alert("Le fichier CSV est vide ou invalide.");
+        return;
+      }
+
+      // Map rows to partner schema
+      const itemsToInsert = parsed.rows.map(row => {
+        const name = row.name || row.nom || row['nom complet'] || row['raison sociale'] || row.partner || 'Partenaire sans nom';
+        let rawType = row.type || row.role || filterType;
+        let type = 'client';
+        if (rawType.toLowerCase().includes('fournis') || rawType.toLowerCase().includes('supplier') || rawType.toLowerCase().includes('prov')) {
+          type = 'fournisseur';
+        }
+        const email = row.email || row['e-mail'] || row.mail || null;
+        const phone = row.phone || row['téléphone'] || row.tel || null;
+        const city = row.city || row.ville || null;
+        const address = row.address || row.adresse || null;
+        const ice = row.ice || null;
+        const if_id = row.if || row.if_id || row['identifiant fiscal'] || null;
+
+        return {
+          id: 'ent-' + Math.floor(Math.random() * 100000000000),
+          name,
+          type,
+          email,
+          phone,
+          city,
+          address,
+          ice,
+          if_id
+        };
+      });
+
+      if (usingMockData) {
+        setPartners(prev => [...itemsToInsert, ...prev]);
+        alert(`${itemsToInsert.length} partenaires importés localement avec succès !`);
+      } else {
+        try {
+          const { error } = await supabase.from('partners').insert(itemsToInsert);
+          if (error) throw error;
+          alert(`${itemsToInsert.length} partenaires importés dans la base de données avec succès !`);
+          await fetchPartners();
+        } catch (err) {
+          alert("Erreur lors de l'importation : " + err.message);
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset file input
+  };
+
+
   // Helper to calculate Volume d'affaires and Encours for a partner
   const getPartnerMetrics = (partner) => {
     const partnerCheques = cheques.filter(c => c.partner_name?.toLowerCase() === partner.name?.toLowerCase());
@@ -236,6 +298,16 @@ export default function Partners() {
           <p className="catalog-subtitle">Gérez votre écosystème de clients et fournisseurs.</p>
         </div>
         <div className="catalog-header-actions">
+          <input
+            type="file"
+            id="csv-import-partners-input"
+            accept=".csv"
+            style={{ display: 'none' }}
+            onChange={handleImportCSV}
+          />
+          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-partners-input').click()}>
+            <Upload size={16} /> IMPORTER CSV
+          </button>
           <button className="btn btn-white" onClick={handleExportCSV}>
             <Download size={16} /> EXPORTER CSV
           </button>
