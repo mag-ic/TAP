@@ -2,7 +2,15 @@
   RewriteEngine On
   RewriteBase /
   RewriteRule ^index\.html$ - [L]
+  
+  # Do not rewrite existing files or directories
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
+  
+  # Exclude static assets from rewrite to prevent HTML responses for missing files
+  # This returns a clean 404 for old next.js chunks and old service workers,
+  # forcing the browser to unregister the old service worker.
+  RewriteCond %{REQUEST_URI} !\.(js|css|gif|jpg|png|ico|txt|xml|svg|json|map)$ [NC]
+  
   RewriteRule . /index.html [L]
 </IfModule>
