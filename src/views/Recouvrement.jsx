@@ -108,7 +108,6 @@ export default function Recouvrement() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    document.body.removeChild(link);
   };
 
   const handleImportCSV = (e) => {
