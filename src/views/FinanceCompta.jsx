@@ -29,6 +29,15 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
   const [editDescription, setEditDescription] = useState('');
   const [editAmount, setEditAmount] = useState('');
 
+  // Payment Modal States
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedTxForPayment, setSelectedTxForPayment] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('Virement');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentBank, setPaymentBank] = useState('');
+  const [paymentNumber, setPaymentNumber] = useState('');
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -290,6 +299,65 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
     setShowEditModal(false);
     setEditingTx(null);
+  };
+
+  const handlePayClick = (tx, e) => {
+    e.stopPropagation();
+    const { reste } = getTxMetrics(tx);
+    setSelectedTxForPayment(tx);
+    setPaymentMethod('Virement');
+    setPaymentAmount(reste.toString());
+    setPaymentDate(new Date().toISOString().split('T')[0]);
+    setPaymentBank('');
+    setPaymentNumber('');
+    setShowPaymentModal(true);
+  };
+
+  const handleSavePayment = async (e) => {
+    e.preventDefault();
+    if (!selectedTxForPayment) return;
+
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Veuillez saisir un montant valide.");
+      return;
+    }
+
+    const type = (selectedTxForPayment.type === 'vente' || selectedTxForPayment.type === 'revenu' || selectedTxForPayment.type === 'apport') ? 'IN' : 'OUT';
+    const reference = getBCReference(selectedTxForPayment.description);
+    
+    const status = paymentMethod === 'Chèque' ? 'en_attente' : 'recouvré';
+
+    const newCheque = {
+      id: 'chq-' + Date.now(),
+      type,
+      reference,
+      status,
+      partner_name: selectedTxForPayment.partner_name || 'N/A',
+      due_date: paymentDate,
+      amount,
+      bank: paymentMethod === 'Chèque' ? paymentBank : paymentMethod,
+      number: paymentMethod === 'Chèque' ? paymentNumber : `${paymentMethod.toUpperCase().slice(0, 3)}-${Date.now().toString().slice(-4)}`,
+      received_date: paymentDate
+    };
+
+    if (usingMockData) {
+      setCheques([newCheque, ...cheques]);
+      alert("Règlement enregistré avec succès (Mode Démo) !");
+    } else {
+      try {
+        const { error } = await supabase.from('cheques').insert([newCheque]);
+        if (error) throw error;
+        alert("Règlement enregistré avec succès !");
+        await fetchData();
+      } catch (err) {
+        alert("Erreur lors de l'enregistrement du règlement : " + err.message);
+        return;
+      }
+    }
+
+    setShowPaymentModal(false);
+    setSelectedTxForPayment(null);
   };
 
   // --- 2. COMPTA TAB LOGIC (Standard PCM marocain) ---
@@ -558,6 +626,11 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                         </td>
                         <td style={{ padding: '20px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
+                            {reste > 0 && (
+                              <button className="action-icon-btn" style={{ color: '#2563eb', cursor: 'pointer' }} onClick={(e) => handlePayClick(tx, e)} title="Régler / Enregistrer un règlement">
+                                <Plus size={16} />
+                              </button>
+                            )}
                             <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={(e) => handleEditClick(tx, e)} title="Modifier">
                               <Pencil size={16} />
                             </button>
@@ -621,6 +694,96 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Annuler</button>
                   <button type="submit" className="btn btn-blue-action">Enregistrer</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Modal */}
+        {showPaymentModal && selectedTxForPayment && (
+          <div className="modal-overlay">
+            <div className="modal-content" style={{ color: 'var(--text-primary)', maxWidth: '500px' }}>
+              <button className="modal-close" onClick={() => setShowPaymentModal(false)}>
+                <X size={20} />
+              </button>
+              <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Enregistrer un Règlement</h3>
+              <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '12px 16px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase', marginBottom: '4px' }}>Réf. Document</div>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e3a8a' }}>{getBCReference(selectedTxForPayment.description)}</div>
+                <div style={{ fontSize: '12px', color: '#60a5fa', fontWeight: '600', marginTop: '2px' }}>Tiers : {selectedTxForPayment.partner_name || 'N/A'}</div>
+              </div>
+              <form onSubmit={handleSavePayment}>
+                <div className="form-group">
+                  <label className="form-label">Mode de règlement</label>
+                  <select 
+                    className="form-input" 
+                    value={paymentMethod} 
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    <option value="Virement">Virement</option>
+                    <option value="Chèque">Chèque</option>
+                    <option value="Espèces">Espèces</option>
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Montant Réglé (DH)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      className="form-input"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Date Règlement</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={paymentDate}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {(paymentMethod === 'Chèque' || paymentMethod === 'Virement') && (
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Banque</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: ATW, CDM, BP..."
+                        className="form-input"
+                        value={paymentBank}
+                        onChange={(e) => setPaymentBank(e.target.value)}
+                        required={paymentMethod === 'Chèque'}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">
+                        {paymentMethod === 'Chèque' ? 'N° Chèque' : 'Réf. Virement (Optionnel)'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={paymentMethod === 'Chèque' ? "Ex: 123456..." : "Ex: VIR-XXXX..."}
+                        className="form-input"
+                        value={paymentNumber}
+                        onChange={(e) => setPaymentNumber(e.target.value)}
+                        required={paymentMethod === 'Chèque'}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowPaymentModal(false)}>Annuler</button>
+                  <button type="submit" className="btn btn-blue-action">Valider le règlement</button>
                 </div>
               </form>
             </div>
