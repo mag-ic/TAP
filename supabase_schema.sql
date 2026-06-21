@@ -5,6 +5,7 @@ drop table if exists public.debts cascade;
 drop table if exists public.cheques cascade;
 drop table if exists public.transactions cascade;
 drop table if exists public.inventaire cascade;
+drop table if exists public.spare_parts cascade;
 drop table if exists public.partners cascade;
 
 -- 1. PARTNERS (using text IDs from CSV)
@@ -31,6 +32,18 @@ create table public.inventaire (
     minStock integer default 5 not null,
     price decimal(12, 2) default 0.00 not null,
     declassedStock integer default 0 not null,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 2.5 SPARE PARTS
+create table public.spare_parts (
+    id text primary key,
+    name text not null,
+    part_number text not null,
+    category text not null,
+    quantity integer default 0 not null,
+    min_quantity integer default 2 not null,
+    unit_price decimal(12, 2) default 0.00 not null,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -138,6 +151,13 @@ insert into public.inventaire (id, name, sku, category, stock, minStock, price, 
 insert into public.inventaire (id, name, sku, category, stock, minStock, price, declassedStock) values ('prod-1775054881472', 'SV8900WF SIVIR', 'SIVIR', 'MAL AUTO', 23, 5, 756.6666666666667, 1) on conflict (id) do nothing;
 insert into public.inventaire (id, name, sku, category, stock, minStock, price, declassedStock) values ('prod-1773397719798', 'TESTE', 'CL', 'CL', 16, 5, 28988.333333333336, 0) on conflict (id) do nothing;
 insert into public.inventaire (id, name, sku, category, stock, minStock, price, declassedStock) values ('prod-1779106028193', 'TRIO ENCASTRABLE', 'SIVIR', 'ENCASTRABLE', 7, 5, 2125, 0) on conflict (id) do nothing;
+
+-- Seed Spare Parts
+insert into public.spare_parts (id, name, part_number, category, quantity, min_quantity, unit_price) values ('part-1', 'Filtre à Huile F-104', 'FLT-H-104', 'Moteur', 12, 4, 15.00) on conflict (id) do nothing;
+insert into public.spare_parts (id, name, part_number, category, quantity, min_quantity, unit_price) values ('part-2', 'Joint Torique 24mm', 'JNT-TOR-24', 'Plomberie', 200, 50, 0.15) on conflict (id) do nothing;
+insert into public.spare_parts (id, name, part_number, category, quantity, min_quantity, unit_price) values ('part-3', 'Résistance Chauffante 2000W', 'RES-CH-2000W', 'Chauffage', 1, 2, 45.00) on conflict (id) do nothing;
+insert into public.spare_parts (id, name, part_number, category, quantity, min_quantity, unit_price) values ('part-4', 'Courroie de transmission C-45', 'CRT-C-45', 'Moteur', 3, 2, 22.50) on conflict (id) do nothing;
+
 
 -- Seed SAV Tickets
 insert into public.sav_tickets (id, client_name, client_id, product_name, product_id, ticket_number, description, solution, cost, status, created_at, updated_at) values ('sav-1770127097230', 'BOUCHAIB DAIKO', 'ent-1769607969825', 'SV7900WF', 'prod-1770127083008', 'SAV-097230', 'ECRAN AFFICHEUR', NULL, 350, 'résolu', '2026-02-03', '2026-02-23') on conflict (id) do nothing;
@@ -334,3 +354,33 @@ insert into public.transactions (id, type, amount, description, partner_name, da
 insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1777285784270', 'vente', 162800.00000000003, 'Facture INV-26-0058', 'ABOUDRAR', '2026-04-27', 'Chèque', 'en_attente', '[{"sku":"SIVIR","totalHT":69666.66666666667,"unitPriceHT":1833.3333333333335,"quantity":38,"productName":"SV7900WF SIVIR"},{"quantity":33,"unitPriceHT":2000,"sku":"SIVIR","totalHT":66000,"productName":"SV8900WF SIVIR"}]') on conflict (id) do nothing;
 insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1777459783978', 'vente', 54600, 'Facture INV-26-0059', 'BRAHIM OULFA', '2026-04-29', 'Chèque', 'confirmé', '[{"productName":"SV7900WF SIVIR","sku":"SIVIR","totalHT":22000,"unitPriceHT":1833.3333333333335,"quantity":12},{"productName":"SV8900WF SIVIR","totalHT":23500,"sku":"SIVIR","unitPriceHT":1958.3333333333335,"quantity":12}]') on conflict (id) do nothing;
 insert into public.transactions (id, type, amount, description, partner_name, date, payment_method, status, items) values ('inv-gen-1777979995340', 'vente', 35300, 'Facture INV-26-0060', 'MOHAMMED HOUCEIMA', '2026-05-05', 'Chèque', 'en_attente', '[{"productName":"SV7900WF SIVIR","quantity":10,"totalHT":17916.666666666668,"sku":"SIVIR","unitPriceHT":1791.6666666666667},{"productName":"SV8900WF SIVIR","totalHT":11500,"unitPriceHT":1916.6666666666667,"sku":"SIVIR","quantity":6}]') on conflict (id) do nothing;
+
+
+-- =========================================================================
+-- Enable RLS and Create Public Permissive Policies for all tables
+-- =========================================================================
+
+alter table public.partners enable row level security;
+drop policy if exists "Enable all for everyone on partners" on public.partners;
+create policy "Enable all for everyone on partners" on public.partners for all using (true) with check (true);
+
+alter table public.inventaire enable row level security;
+drop policy if exists "Enable all for everyone on inventaire" on public.inventaire;
+create policy "Enable all for everyone on inventaire" on public.inventaire for all using (true) with check (true);
+
+alter table public.transactions enable row level security;
+drop policy if exists "Enable all for everyone on transactions" on public.transactions;
+create policy "Enable all for everyone on transactions" on public.transactions for all using (true) with check (true);
+
+alter table public.cheques enable row level security;
+drop policy if exists "Enable all for everyone on cheques" on public.cheques;
+create policy "Enable all for everyone on cheques" on public.cheques for all using (true) with check (true);
+
+alter table public.sav_tickets enable row level security;
+drop policy if exists "Enable all for everyone on sav_tickets" on public.sav_tickets;
+create policy "Enable all for everyone on sav_tickets" on public.sav_tickets for all using (true) with check (true);
+
+alter table public.spare_parts enable row level security;
+drop policy if exists "Enable all for everyone on spare_parts" on public.spare_parts;
+create policy "Enable all for everyone on spare_parts" on public.spare_parts for all using (true) with check (true);
+
