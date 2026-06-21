@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Search, Download, AlertCircle, ArrowDown, ArrowUp, Pencil, RotateCcw, X } from 'lucide-react';
+import { Search, Download, AlertCircle, ArrowDown, ArrowUp, Pencil, RotateCcw, X, Upload } from 'lucide-react';
+import { parseCSV } from '../lib/csvHelper';
 
 export default function Recouvrement() {
   const [cheques, setCheques] = useState([]);
@@ -103,6 +104,80 @@ export default function Recouvrement() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    document.body.removeChild(link);
+  };
+
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const parsed = parseCSV(text);
+      if (!parsed || parsed.rows.length === 0) {
+        alert("Le fichier CSV est vide ou invalide.");
+        return;
+      }
+
+      const newCheques = [];
+      parsed.rows.forEach(row => {
+        let rawType = (row.type || row.role || 'IN').toLowerCase();
+        let type = 'IN';
+        if (rawType.includes('out') || rawType.includes('fournis') || rawType.includes('supplier') || rawType.includes('prov')) {
+          type = 'OUT';
+        }
+
+        const due_date = row.due_date || row.echeance || row.due || new Date().toISOString().split('T')[0];
+        const received_date = row.received_date || row['date recu'] || row.received || new Date().toISOString().split('T')[0];
+        const bank = row.bank || row.banque || null;
+        const number = row.number || row.numero || row['numero de cheque'] || null;
+        const partner_name = row.partner_name || row.partner || row.tiers || row.client || row.fournisseur || null;
+        const reference = row.reference || row['référence'] || null;
+
+        let amount = parseFloat((row.amount || row.montant || '0').toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
+        if (isNaN(amount)) amount = 0;
+
+        let rawStatus = (row.status || row.statut || 'en_attente').toLowerCase();
+        let status = 'en_attente';
+        if (rawStatus.includes('recouvr') || rawStatus.includes('encais') || rawStatus.includes('clear')) {
+          status = 'recouvré';
+        } else if (rawStatus.includes('impay') || rawStatus.includes('bounce') || rawStatus.includes('reject')) {
+          status = 'impayé';
+        }
+
+        newCheques.push({
+          id: 'chq-' + Math.floor(Math.random() * 100000000000),
+          type,
+          reference,
+          status,
+          partner_name,
+          due_date,
+          amount,
+          bank,
+          number,
+          received_date
+        });
+      });
+
+      if (newCheques.length === 0) return;
+
+      if (usingMockData) {
+        setCheques(prev => [...newCheques, ...prev]);
+        alert(`${newCheques.length} chèques importés avec succès localement !`);
+      } else {
+        try {
+          const { error } = await supabase.from('cheques').insert(newCheques);
+          if (error) throw error;
+          alert(`${newCheques.length} chèques importés avec succès dans la base de données !`);
+          await fetchCheques();
+        } catch (err) {
+          alert("Erreur lors de l'importation : " + err.message);
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   // Filter Logic
@@ -143,8 +218,8 @@ export default function Recouvrement() {
   const passedCount = cheques.filter(c => c.status !== 'recouvré' && new Date(c.due_date) < new Date()).length;
 
   return (
-    <div style={{ color: '#1f2937' }}>
-      {/* Header matching image */}
+    <div className="stock-page-container">
+      {/* Header */}
       <div className="catalog-header" style={{ marginBottom: '28px' }}>
         <div className="catalog-title-wrapper">
           <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
@@ -155,10 +230,19 @@ export default function Recouvrement() {
           </p>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button className="btn btn-secondary" onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#ffffff', color: '#334155', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>
-            <Download size={16} />
-            <span>EXPORTER</span>
+        <div className="catalog-header-actions" style={{ alignItems: 'center' }}>
+          <input
+            type="file"
+            id="csv-import-cheques-input"
+            accept=".csv"
+            style={{ display: 'none' }}
+            onChange={handleImportCSV}
+          />
+          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-cheques-input').click()}>
+            <Upload size={16} /> IMPORTER CSV
+          </button>
+          <button className="btn btn-white" onClick={handleExportCSV}>
+            <Download size={16} /> EXPORTER CSV
           </button>
           
           {passedCount > 0 && (
@@ -173,7 +257,7 @@ export default function Recouvrement() {
       {/* KPI Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '28px' }}>
         {/* Card 1 */}
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', border: '1px solid #e2e8f0' }}>
+        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
           <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
             Total Chèques Clients
           </div>
@@ -183,7 +267,7 @@ export default function Recouvrement() {
         </div>
 
         {/* Card 2 */}
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', border: '1px solid #e2e8f0' }}>
+        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
           <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
             En attente d'encaissement
           </div>
@@ -193,7 +277,7 @@ export default function Recouvrement() {
         </div>
 
         {/* Card 3 */}
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', border: '1px solid #e2e8f0' }}>
+        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
           <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
             Total Chèques Fournisseurs
           </div>
@@ -204,36 +288,38 @@ export default function Recouvrement() {
       </div>
 
       {/* Filter Capsule Bar */}
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '50px', border: '1px solid #e2e8f0', padding: '8px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', marginBottom: '28px', boxShadow: '0 4px 18px rgba(0,0,0,0.01)' }}>
+      <div className="catalog-filter-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
         {/* Search */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexGrow: 1, maxWidth: '300px' }}>
-          <Search size={18} style={{ color: '#94a3b8' }} />
+        <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
+          <Search size={18} className="search-icon" style={{ color: '#94a3b8' }} />
           <input
             type="text"
             placeholder="N°, Tiers, Réf..."
+            className="form-input search-input-catalog"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ border: 'none', backgroundColor: 'transparent', width: '100%', outline: 'none', color: '#1f2937', fontWeight: '600', fontSize: '13px' }}
           />
         </div>
 
         {/* Switch Type Tabs */}
-        <div style={{ display: 'inline-flex', padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '30px' }}>
+        <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
           {['TOUS', 'CLIENTS', 'FOURNIS.'].map(type => (
             <button
               key={type}
+              className={`tab-btn ${filterType === type ? 'active' : ''}`}
               style={{
-                padding: '6px 16px',
-                borderRadius: '30px',
-                border: 'none',
-                backgroundColor: filterType === type ? '#ffffff' : 'transparent',
-                color: filterType === type ? '#2563eb' : '#64748b',
-                fontWeight: '800',
+                textTransform: 'uppercase',
                 fontSize: '11px',
                 letterSpacing: '0.5px',
-                cursor: 'pointer',
-                boxShadow: filterType === type ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                transition: 'all 0.2s ease'
+                padding: '8px 16px',
+                borderRadius: '10px',
+                backgroundColor: filterType === type ? '#2563eb' : 'transparent',
+                color: filterType === type ? '#ffffff' : '#64748b',
+                boxShadow: filterType === type ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
+                transition: 'all 0.2s ease',
+                border: 'none',
+                fontWeight: '700',
+                cursor: 'pointer'
               }}
               onClick={() => setFilterType(type)}
             >
@@ -243,22 +329,13 @@ export default function Recouvrement() {
         </div>
 
         {/* Status Dropdown */}
-        <div style={{ borderLeft: '1px solid #e2e8f0', paddingLeft: '20px' }}>
+        <div className="search-input-wrapper" style={{ width: '200px', flexShrink: 0 }}>
+          <Search size={18} className="search-icon" style={{ color: '#94a3b8' }} />
           <select
+            className="select-category-catalog"
+            style={{ paddingLeft: '42px', width: '100%' }}
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            style={{
-              border: 'none',
-              backgroundColor: 'transparent',
-              color: '#0f172a',
-              fontWeight: '800',
-              fontSize: '12px',
-              letterSpacing: '0.5px',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-              outline: 'none',
-              paddingRight: '12px'
-            }}
           >
             <option value="all">Tous les statuts</option>
             <option value="recouvré">Encaissé</option>
@@ -268,26 +345,14 @@ export default function Recouvrement() {
         </div>
 
         {/* Reset */}
-        <div style={{ borderLeft: '1px solid #e2e8f0', paddingLeft: '20px' }}>
-          <button
-            onClick={handleResetFilters}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              border: 'none',
-              backgroundColor: 'transparent',
-              color: '#64748b',
-              fontWeight: '800',
-              fontSize: '11px',
-              letterSpacing: '0.5px',
-              cursor: 'pointer'
-            }}
-          >
-            <RotateCcw size={13} />
-            <span>RESET</span>
-          </button>
-        </div>
+        <button
+          onClick={handleResetFilters}
+          className="btn btn-white"
+          title="Réinitialiser les filtres"
+          style={{ padding: '12px', borderRadius: '12px' }}
+        >
+          <RotateCcw size={16} />
+        </button>
       </div>
 
       {/* Cheques list table */}
@@ -405,30 +470,27 @@ export default function Recouvrement() {
 
       {/* Edit Status Modal */}
       {showEditModal && editingCheque && (
-        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(15, 23, 42, 0.4)', zIndex: 1000 }}>
-          <div className="modal-content" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '28px', width: '420px', border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Modifier le Statut</h3>
-              <button style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setShowEditModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ color: 'var(--text-primary)' }}>
+            <button className="modal-close" onClick={() => setShowEditModal(false)}>
+              <X size={20} />
+            </button>
+            <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Modifier le Statut</h3>
             
             <form onSubmit={handleSaveStatus}>
-              <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '16px', marginBottom: '20px', border: '1px solid #f1f5f9' }}>
+              <div style={{ padding: '16px', backgroundColor: '#f1f5f9', borderRadius: '16px', marginBottom: '20px', border: '1px solid #e2e8f0', color: '#0f172a' }}>
                 <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Détails du Chèque</div>
-                <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700' }}>N°: {editingCheque.number || 'N/A'} ({editingCheque.bank})</div>
+                <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700' }}>N°: {editingCheque.number || 'N/A'} ({editingCheque.bank ? editingCheque.bank.toUpperCase() : '-'})</div>
                 <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700', marginTop: '4px' }}>Tiers: {editingCheque.partner_name || 'N/A'}</div>
                 <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700', marginTop: '4px' }}>Montant: {formatCurrency(editingCheque.amount)}</div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label" style={{ fontWeight: '700', fontSize: '12px', color: '#475569', marginBottom: '8px', display: 'block' }}>Nouveau Statut</label>
+                <label className="form-label">Nouveau Statut</label>
                 <select 
                   className="form-input" 
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600' }}
                 >
                   <option value="recouvré">Encaissé</option>
                   <option value="impayé">Impayé</option>
@@ -437,8 +499,8 @@ export default function Recouvrement() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: '1px solid #e2e8f0', backgroundColor: '#ffffff', cursor: 'pointer' }}>Annuler</button>
-                <button type="submit" className="btn btn-blue-action" style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: 'none', backgroundColor: '#2563eb', color: '#ffffff', cursor: 'pointer' }}>Enregistrer</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Annuler</button>
+                <button type="submit" className="btn btn-blue-action">Enregistrer</button>
               </div>
             </form>
           </div>
