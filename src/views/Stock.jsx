@@ -29,7 +29,7 @@ export default function Stock() {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('stock')
+        .from('inventaire')
         .select('*')
         .order('name', { ascending: true });
 
@@ -67,10 +67,10 @@ export default function Stock() {
     setName(item.name || '');
     setSku(item.sku || '');
     setCategory(item.category || '');
-    setQuantity(item.quantity !== undefined ? item.quantity.toString() : '');
-    setDeclassedQuantity(item.declassed_quantity !== undefined ? item.declassed_quantity.toString() : '0');
-    setMinQuantity(item.min_quantity !== undefined ? item.min_quantity.toString() : '5');
-    setUnitPrice(item.unit_price !== undefined ? item.unit_price.toString() : '');
+    setQuantity(item.stock !== undefined ? item.stock.toString() : '');
+    setDeclassedQuantity(item.declassedStock !== undefined ? item.declassedStock.toString() : '0');
+    setMinQuantity(item.minStock !== undefined ? item.minStock.toString() : '5');
+    setUnitPrice(item.price !== undefined ? item.price.toString() : '');
     setShowModal(true);
   };
 
@@ -82,7 +82,7 @@ export default function Stock() {
       setStockItems(stockItems.filter(item => item.id !== id));
     } else {
       const { error } = await supabase
-        .from('stock')
+        .from('inventaire')
         .delete()
         .eq('id', id);
 
@@ -109,25 +109,25 @@ export default function Stock() {
         name,
         sku,
         category,
-        quantity: qty,
-        declassed_quantity: declQty,
-        min_quantity: minQty,
-        unit_price: price
+        stock: qty,
+        declassedStock: declQty,
+        minStock: minQty,
+        price: price
       };
 
       if (usingMockData) {
         setStockItems(stockItems.map(item => item.id === editingItem.id ? updatedItem : item));
       } else {
         const { error } = await supabase
-          .from('stock')
+          .from('inventaire')
           .update({
             name,
             sku,
             category,
-            quantity: qty,
-            declassed_quantity: declQty,
-            min_quantity: minQty,
-            unit_price: price
+            stock: qty,
+            declassedStock: declQty,
+            minStock: minQty,
+            price: price
           })
           .eq('id', editingItem.id);
 
@@ -143,17 +143,17 @@ export default function Stock() {
         name,
         sku,
         category,
-        quantity: qty,
-        declassed_quantity: declQty,
-        min_quantity: minQty,
-        unit_price: price
+        stock: qty,
+        declassedStock: declQty,
+        minStock: minQty,
+        price: price
       };
 
       if (usingMockData) {
         setStockItems([newItem, ...stockItems]);
       } else {
         const { error } = await supabase
-          .from('stock')
+          .from('inventaire')
           .insert([newItem]);
 
         if (error) {
@@ -187,16 +187,16 @@ export default function Stock() {
 
   const handleExportCSV = () => {
     const BOM = "\uFEFF";
-    const headers = ["Nom", "SKU", "Catégorie", "Prix HT (DH)", "Prix TTC (DH)", "Stock Neuf", "Stock Déclassé", "Seuil d'Alerte"];
+    const headers = ["price", "sku", "category", "minStock", "name", "id", "stock", "declassedStock"];
     const rows = stockItems.map(item => [
-      item.name,
+      item.price,
       item.sku,
       item.category,
-      item.unit_price,
-      (item.unit_price * 1.2).toFixed(2),
-      item.quantity,
-      item.declassed_quantity || 0,
-      item.min_quantity
+      item.minStock,
+      item.name,
+      item.id,
+      item.stock,
+      item.declassedStock || 0
     ]);
 
     const csvContent = BOM + [headers.join(','), ...rows.map(e => e.map(val => `"${val}"`).join(','))].join('\n');
@@ -223,27 +223,25 @@ export default function Stock() {
         return;
       }
 
-      // Map rows to stock schema
+      // Map rows to inventaire schema using user's explicit column keys
       const itemsToInsert = parsed.rows.map(row => {
-        const name = row.nom || row.designation || row.title || row.name || 'Produit sans nom';
+        const name = row.name || row.nom || row.designation || row.title || 'Produit sans nom';
         const sku = row.sku || row.reference || row.ref || 'SKU-NEW';
         const category = row.category || row.categorie || 'Catégorie';
-        const quantity = Number(row.quantity || row.quantite || row.stock || row['stock neuf'] || 0);
-        const unit_price = Number(row.price || row.prix || row.unit_price || row['prix ht'] || 0);
-        const declassed_quantity = Number(row.declassed_quantity || row['quantite declassee'] || row['stock declasse'] || 0);
-        const declassed_price = Number(row.declassed_price || row['prix declasse'] || 0);
-        const min_quantity = Number(row.min_quantity || row.alert || row['seuil d\'alerte'] || 5);
+        const stock = Number(row.stock || row.quantity || row.quantite || row['stock neuf'] || 0);
+        const price = Number(row.price || row.prix || row.unit_price || row['prix ht'] || 0);
+        const declassedStock = Number(row.declassedstock || row.declassed_stock || row.declassed_quantity || row['quantite declassee'] || row['stock declasse'] || 0);
+        const minStock = Number(row.minstock || row.min_stock || row.min_quantity || row.alert || row['seuil d\'alerte'] || 5);
 
         return {
-          id: 'prod-' + Math.floor(Math.random() * 100000000000),
+          id: row.id || ('prod-' + Math.floor(Math.random() * 100000000000)),
           name,
           sku,
           category,
-          quantity,
-          unit_price,
-          declassed_quantity,
-          declassed_price,
-          min_quantity
+          stock,
+          price,
+          declassedStock,
+          minStock
         };
       });
 
@@ -252,7 +250,7 @@ export default function Stock() {
         alert(`${itemsToInsert.length} produits importés localement avec succès !`);
       } else {
         try {
-          const { error } = await supabase.from('stock').insert(itemsToInsert);
+          const { error } = await supabase.from('inventaire').insert(itemsToInsert);
           if (error) throw error;
           alert(`${itemsToInsert.length} produits importés dans la base de données avec succès !`);
           await fetchStock();
@@ -279,14 +277,14 @@ export default function Stock() {
 
   if (sortBy === 'stock') {
     filteredItems.sort((a, b) => {
-      const valA = a.quantity || 0;
-      const valB = b.quantity || 0;
+      const valA = a.stock || 0;
+      const valB = b.stock || 0;
       return sortOrder === 'asc' ? valA - valB : valB - valA;
     });
   } else if (sortBy === 'price') {
     filteredItems.sort((a, b) => {
-      const valA = a.unit_price || 0;
-      const valB = b.unit_price || 0;
+      const valA = a.price || 0;
+      const valB = b.price || 0;
       return sortOrder === 'asc' ? valA - valB : valB - valA;
     });
   }
@@ -379,8 +377,8 @@ export default function Stock() {
       ) : (
         <div className="catalog-grid">
           {filteredItems.map(item => {
-            const isOutOfStock = (item.quantity || 0) === 0;
-            const displayPrice = (item.unit_price || 0) * 1.2;
+            const isOutOfStock = (item.stock || 0) === 0;
+            const displayPrice = (item.price || 0) * 1.2;
 
             return (
               <div key={item.id} className="product-card">
@@ -407,7 +405,7 @@ export default function Stock() {
 
                 <div className="product-card-body">
                   <div className="price-section-catalog">
-                    <span className="price-label-catalog">PRIX D'ACHAT TTC</span>
+                     <span className="price-label-catalog">PRIX D'ACHAT TTC</span>
                     <span className="price-value-catalog">{formatCurrency(displayPrice)}</span>
                   </div>
 
@@ -429,7 +427,7 @@ export default function Stock() {
                         backgroundColor: '#ffffff',
                         fontSize: '11px',
                         fontWeight: '700'
-                      }}>{item.quantity}</span>
+                      }}>{item.stock}</span>
                     </div>
 
                     <div className="declassed-pill-catalog">
@@ -445,7 +443,7 @@ export default function Stock() {
                         backgroundColor: '#ffffff',
                         fontSize: '11px',
                         fontWeight: '700'
-                      }}>{item.declassed_quantity || 0}</span>
+                      }}>{item.declassedStock || 0}</span>
                     </div>
                   </div>
                 </div>

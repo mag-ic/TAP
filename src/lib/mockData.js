@@ -502,112 +502,113 @@ export const mockStock = [
     "name": "12000BTU WEST",
     "sku": "ON/OFF",
     "category": "MURAL",
-    "quantity": 25,
-    "min_quantity": 5,
-    "unit_price": 2166.666666666667,
-    "declassed_quantity": 0
+    "stock": 25,
+    "minStock": 5,
+    "price": 2166.666666666667,
+    "declassedStock": 0
   },
   {
     "id": "prod-1774972097327",
     "name": "18000BTU ROCH",
     "sku": "ROCH",
     "category": "ON/OFF ROCH",
-    "quantity": 25,
-    "min_quantity": 5,
-    "unit_price": 3000,
-    "declassed_quantity": 0
+    "stock": 25,
+    "minStock": 5,
+    "price": 3000,
+    "declassedStock": 0
   },
   {
     "id": "prod-1769683845181",
     "name": "9000BTU 4MELEC",
     "sku": "ON/OFF",
     "category": "MURAL",
-    "quantity": 25,
-    "min_quantity": 5,
-    "unit_price": 1833.3333333333335,
-    "declassed_quantity": 0
+    "stock": 25,
+    "minStock": 5,
+    "price": 1833.3333333333335,
+    "declassedStock": 0
   },
   {
     "id": "prod-1771851829901",
     "name": "9000BTU ROCH",
     "sku": "ROCH ON/OFF",
     "category": "ON/OFF ROCH",
-    "quantity": 25,
-    "min_quantity": 5,
-    "unit_price": 1791.6666666666667,
-    "declassed_quantity": 0
+    "stock": 25,
+    "minStock": 5,
+    "price": 1791.6666666666667,
+    "declassedStock": 0
   },
   {
     "id": "prod-1775051921967",
     "name": "ST43X",
     "sku": "SIVIR",
     "category": "TV",
-    "quantity": 23,
-    "min_quantity": 5,
-    "unit_price": 0,
-    "declassed_quantity": 0
+    "stock": 23,
+    "minStock": 5,
+    "price": 0,
+    "declassedStock": 0
   },
   {
     "id": "prod-1773396015262",
     "name": "SV09IAC",
     "sku": "SIVIR",
     "category": "9000BTU INVERTER",
-    "quantity": 25,
-    "min_quantity": 5,
-    "unit_price": 1121.2166666666667,
-    "declassed_quantity": 0
+    "stock": 25,
+    "minStock": 5,
+    "price": 1121.2166666666667,
+    "declassedStock": 0
   },
   {
     "id": "prod-1773396078915",
     "name": "SV12IAC",
     "sku": "SIVIR",
     "category": "12000BTU INVERTER",
-    "quantity": 25,
-    "min_quantity": 5,
-    "unit_price": 1121.2166666666667,
-    "declassed_quantity": 0
+    "stock": 25,
+    "minStock": 5,
+    "price": 1121.2166666666667,
+    "declassedStock": 0
   },
   {
     "id": "prod-1770127083008",
     "name": "SV7900WF SIVIR",
     "sku": "SIVIR",
     "category": "MAL AUTO",
-    "quantity": 25,
-    "min_quantity": 5,
-    "unit_price": 756.6666666666667,
-    "declassed_quantity": 4
+    "stock": 25,
+    "minStock": 5,
+    "price": 756.6666666666667,
+    "declassedStock": 4
   },
   {
     "id": "prod-1775054881472",
     "name": "SV8900WF SIVIR",
     "sku": "SIVIR",
     "category": "MAL AUTO",
-    "quantity": 23,
-    "min_quantity": 5,
-    "unit_price": 756.6666666666667,
-    "declassed_quantity": 1
+    "stock": 23,
+    "minStock": 5,
+    "price": 756.6666666666667,
+    "declassedStock": 1
   },
   {
     "id": "prod-1773397719798",
     "name": "TESTE",
     "sku": "CL",
     "category": "CL",
-    "quantity": 16,
-    "min_quantity": 5,
-    "unit_price": 28988.333333333336,
-    "declassed_quantity": 0
+    "stock": 16,
+    "minStock": 5,
+    "price": 28988.333333333336,
+    "declassedStock": 0
   },
   {
     "id": "prod-1779106028193",
     "name": "TRIO ENCASTRABLE",
     "sku": "SIVIR",
     "category": "ENCASTRABLE",
-    "quantity": 7,
-    "min_quantity": 5,
-    "unit_price": 2125,
-    "declassed_quantity": 0
+    "stock": 7,
+    "minStock": 5,
+    "price": 2125,
+    "declassedStock": 0
   }
 ];
+
 export const mockSavTickets = [
   {
     "id": "sav-1770127097230",

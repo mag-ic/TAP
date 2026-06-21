@@ -35,8 +35,8 @@ export default function Dashboard({ setActiveTab }) {
           .limit(5);
 
         const { data: stockItems, error: stockError } = await supabase
-          .from('stock')
-          .select('quantity, min_quantity');
+          .from('inventaire')
+          .select('stock, minStock');
 
         const { data: savTickets, error: savError } = await supabase
           .from('sav_tickets')
@@ -60,7 +60,7 @@ export default function Dashboard({ setActiveTab }) {
           .filter(t => (t.type === 'achat' || t.type === 'charge') && t.status === 'confirmé')
           .reduce((sum, t) => sum + Number(t.amount), 0);
 
-        const lowStockCount = stockItems.filter(item => item.quantity <= item.min_quantity).length;
+        const lowStockCount = stockItems.filter(item => item.stock <= item.minStock).length;
 
         setMetrics({
           sales: salesTotal,
@@ -87,7 +87,7 @@ export default function Dashboard({ setActiveTab }) {
           .filter(t => (t.type === 'achat' || t.type === 'charge') && t.status === 'confirmé')
           .reduce((sum, t) => sum + Number(t.amount), 0);
 
-        const lowStockCount = mockStock.filter(item => item.quantity <= item.min_quantity).length;
+        const lowStockCount = mockStock.filter(item => item.stock <= item.minStock).length;
         const openSavTickets = mockSavTickets.filter(t => t.status !== 'résolu').length;
 
         setMetrics({

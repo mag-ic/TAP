@@ -47,7 +47,7 @@ export default function SAV() {
   const fetchInitialData = async () => {
     try {
       const { data: pData } = await supabase.from('partners').select('*').eq('type', 'client');
-      const { data: sData } = await supabase.from('stock').select('*');
+      const { data: sData } = await supabase.from('inventaire').select('*');
       setPartners(pData || []);
       setProducts(sData || []);
     } catch (err) {

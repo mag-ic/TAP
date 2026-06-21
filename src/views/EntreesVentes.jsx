@@ -60,7 +60,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       const { data: pData } = await supabase.from('partners').select('*');
       
       // Fetch Stock
-      const { data: sData } = await supabase.from('stock').select('*').order('name', { ascending: true });
+      const { data: sData } = await supabase.from('inventaire').select('*').order('name', { ascending: true });
 
       setTransactions(txData || []);
       setFournisseurs(pData?.filter(p => p.type === 'fournisseur') || []);
@@ -181,7 +181,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
     if (usingMockData) {
       addedItems.forEach(item => {
         const prod = mockStock.find(s => s.id === item.productId);
-        if (prod) prod.quantity = (prod.quantity || 0) + item.quantity;
+        if (prod) prod.stock = (prod.stock || 0) + item.quantity;
       });
       setTransactions([newTx, ...transactions]);
       alert(`Arrivage ${bcRef} validé avec succès (Mode Démo) !`);
@@ -193,10 +193,10 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       }
 
       for (const item of addedItems) {
-        const { data: stockData } = await supabase.from('stock').select('quantity').eq('id', item.productId).single();
+        const { data: stockData } = await supabase.from('inventaire').select('stock').eq('id', item.productId).single();
         if (stockData) {
-          const newQty = (stockData.quantity || 0) + item.quantity;
-          await supabase.from('stock').update({ quantity: newQty }).eq('id', item.productId);
+          const newQty = (stockData.stock || 0) + item.quantity;
+          await supabase.from('inventaire').update({ stock: newQty }).eq('id', item.productId);
         }
       }
       fetchData();
@@ -312,9 +312,9 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
         const prod = mockStock.find(s => s.id === item.productId);
         if (prod) {
           if (item.stockType === 'Déclassé') {
-            prod.declassed_quantity = Math.max(0, (prod.declassed_quantity || 0) - item.quantity);
+            prod.declassedStock = Math.max(0, (prod.declassedStock || 0) - item.quantity);
           } else {
-            prod.quantity = Math.max(0, (prod.quantity || 0) - item.quantity);
+            prod.stock = Math.max(0, (prod.stock || 0) - item.quantity);
           }
         }
       });
@@ -328,14 +328,14 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       }
 
       for (const item of venteItems) {
-        const { data: stockData } = await supabase.from('stock').select('quantity, declassed_quantity').eq('id', item.productId).single();
+        const { data: stockData } = await supabase.from('inventaire').select('stock, declassedStock').eq('id', item.productId).single();
         if (stockData) {
           if (item.stockType === 'Déclassé') {
-            const newQty = Math.max(0, (stockData.declassed_quantity || 0) - item.quantity);
-            await supabase.from('stock').update({ declassed_quantity: newQty }).eq('id', item.productId);
+            const newQty = Math.max(0, (stockData.declassedStock || 0) - item.quantity);
+            await supabase.from('inventaire').update({ declassedStock: newQty }).eq('id', item.productId);
           } else {
-            const newQty = Math.max(0, (stockData.quantity || 0) - item.quantity);
-            await supabase.from('stock').update({ quantity: newQty }).eq('id', item.productId);
+            const newQty = Math.max(0, (stockData.stock || 0) - item.quantity);
+            await supabase.from('inventaire').update({ stock: newQty }).eq('id', item.productId);
           }
         }
       }
