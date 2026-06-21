@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Plus, Search, RefreshCw, Download, Pencil, Clock, FileText, X, RotateCcw, Calendar, User, Info, PieChart, BarChart3, BookOpen, Calculator } from 'lucide-react';
+import { Plus, Search, RefreshCw, Download, Pencil, Clock, FileText, X, RotateCcw, Calendar, User, Info, PieChart, BarChart3, BookOpen, Calculator, Upload } from 'lucide-react';
+import { parseCSV } from '../lib/csvHelper';
 
 export default function FinanceCompta({ initialMode = 'finance' }) {
   const [transactions, setTransactions] = useState([]);
@@ -173,6 +174,84 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
     document.body.removeChild(link);
   };
 
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const parsed = parseCSV(text);
+      if (!parsed || parsed.rows.length === 0) {
+        alert("Le fichier CSV est vide ou invalide.");
+        return;
+      }
+
+      const newTxs = [];
+      parsed.rows.forEach(row => {
+        const description = (row.description || row.libelle || row['référence'] || row.reference || row['référence / libellé'] || row.designation || `Import ${activeSubTab}`).trim();
+        const date = row.date || new Date().toISOString().split('T')[0];
+        const partner_name = row.partner_name || row.partner || row.tiers || row.client || row.fournisseur || null;
+
+        let amount = parseFloat((row.amount || row.montant || row.valeur || '0').toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
+        if (isNaN(amount)) amount = 0;
+
+        const payment_method = row.payment_method || row.payment || row.mode || row['mode de paiement'] || 'Virement';
+
+        let rawStatus = (row.status || row.statut || 'confirmé').toLowerCase();
+        let status = 'confirmé';
+        if (rawStatus.includes('attente') || rawStatus.includes('partiel') || rawStatus.includes('impay') || rawStatus.includes('pending')) {
+          status = 'en_attente';
+        } else if (rawStatus.includes('annul') || rawStatus.includes('cancel')) {
+          status = 'annulé';
+        }
+
+        let type = row.type || null;
+        if (!type) {
+          if (activeSubTab === 'factures') {
+            type = 'vente';
+          } else if (activeSubTab === 'achats') {
+            type = 'achat';
+          } else if (activeSubTab === 'charges') {
+            type = 'charge';
+          } else {
+            type = 'apport';
+          }
+        }
+
+        newTxs.push({
+          id: 'tx-' + Math.floor(Math.random() * 100000000000),
+          type,
+          amount,
+          description,
+          partner_name,
+          date,
+          payment_method,
+          status,
+          items: '[]'
+        });
+      });
+
+      if (newTxs.length === 0) return;
+
+      if (usingMockData) {
+        setTransactions(prev => [...newTxs, ...prev]);
+        alert(`${newTxs.length} transactions importées avec succès localement !`);
+      } else {
+        try {
+          const { error } = await supabase.from('transactions').insert(newTxs);
+          if (error) throw error;
+          alert(`${newTxs.length} transactions importées avec succès dans la base de données !`);
+          await fetchData();
+        } catch (err) {
+          alert("Erreur lors de l'importation : " + err.message);
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const handleEditClick = (tx, e) => {
     e.stopPropagation();
     setEditingTx(tx);
@@ -260,6 +339,16 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
             <p className="catalog-subtitle">Gestion des flux financiers basés sur les règlements réels.</p>
           </div>
           <div className="catalog-header-actions" style={{ alignItems: 'center' }}>
+            <input
+              type="file"
+              id="csv-import-finance-input"
+              accept=".csv"
+              style={{ display: 'none' }}
+              onChange={handleImportCSV}
+            />
+            <button className="btn btn-white" onClick={() => document.getElementById('csv-import-finance-input').click()}>
+              <Upload size={16} /> IMPORTER CSV
+            </button>
             <button className="btn btn-white" onClick={handleExportCSV}>
               <Download size={16} /> EXPORTER CSV
             </button>
