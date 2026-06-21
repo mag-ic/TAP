@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Search, Download, AlertCircle, ArrowDown, ArrowUp, Pencil, RotateCcw, X, Upload } from 'lucide-react';
+import { Search, Download, AlertCircle, ArrowDown, ArrowUp, Pencil, RotateCcw, X, Upload, Clock, Calendar } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
 
 export default function Recouvrement() {
@@ -19,6 +19,10 @@ export default function Recouvrement() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCheque, setEditingCheque] = useState(null);
   const [editStatus, setEditStatus] = useState('');
+
+  // History Modal State
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyCheque, setHistoryCheque] = useState(null);
 
   const fetchCheques = async () => {
     try {
@@ -443,14 +447,28 @@ export default function Recouvrement() {
                         {formatCurrency(chq.amount)}
                       </td>
                       <td style={{ padding: '16px 12px', textAlign: 'right' }}>
-                        <button 
-                          className="action-icon-btn" 
-                          style={{ color: '#cbd5e1', cursor: 'pointer', border: 'none', backgroundColor: 'transparent' }}
-                          onClick={(e) => handleEditClick(chq, e)} 
-                          title="Modifier le statut"
-                        >
-                          <Pencil size={15} style={{ color: '#94a3b8' }} />
-                        </button>
+                        <div style={{ display: 'inline-flex', gap: '12px' }}>
+                          <button 
+                            className="action-icon-btn" 
+                            style={{ color: '#cbd5e1', cursor: 'pointer', border: 'none', backgroundColor: 'transparent' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHistoryCheque(chq);
+                              setShowHistoryModal(true);
+                            }} 
+                            title="Historique du règlement"
+                          >
+                            <Clock size={15} style={{ color: '#94a3b8' }} />
+                          </button>
+                          <button 
+                            className="action-icon-btn" 
+                            style={{ color: '#cbd5e1', cursor: 'pointer', border: 'none', backgroundColor: 'transparent' }}
+                            onClick={(e) => handleEditClick(chq, e)} 
+                            title="Modifier le statut"
+                          >
+                            <Pencil size={15} style={{ color: '#94a3b8' }} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -503,6 +521,89 @@ export default function Recouvrement() {
                 <button type="submit" className="btn btn-blue-action">Enregistrer</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* History Settlement Modal */}
+      {showHistoryModal && historyCheque && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ color: 'var(--text-primary)', width: '450px' }}>
+            <button className="modal-close" onClick={() => { setShowHistoryModal(false); setHistoryCheque(null); }}>
+              <X size={20} />
+            </button>
+            <h3 className="top-bar-title" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={20} style={{ color: '#2563eb' }} />
+              Historique de Règlement
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Reference invoice */}
+              <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '16px', border: '1px solid #bfdbfe' }}>
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Document / Invoice Lié</span>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#1e3a8a', marginTop: '4px' }}>
+                  {historyCheque.reference || 'N/A'}
+                </div>
+              </div>
+
+              {/* Date details */}
+              <div className="glass-card" style={{ backgroundColor: '#ffffff', padding: '18px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <span style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Date du Règlement (Échéance)</span>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#334155', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={14} style={{ color: '#64748b' }} />
+                    {historyCheque.due_date || 'N/A'}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Date de Réception</span>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#334155', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={14} style={{ color: '#64748b' }} />
+                    {historyCheque.received_date || 'N/A'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tiers and details */}
+              <div className="glass-card" style={{ backgroundColor: '#ffffff', padding: '18px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Tiers / Partenaire :</span>
+                  <span style={{ fontWeight: '700', color: '#334155' }}>{historyCheque.partner_name || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>N° du Chèque :</span>
+                  <span style={{ fontWeight: '700', color: '#334155' }}>{historyCheque.number || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: '#64748b', fontWeight: '600' }}>Banque émettrice :</span>
+                  <span style={{ fontWeight: '700', color: '#334155' }}>{historyCheque.bank ? historyCheque.bank.toUpperCase() : 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid #f1f5f9', paddingTop: '10px', marginTop: '4px' }}>
+                  <span style={{ color: '#64748b', fontWeight: '700' }}>Montant réglé :</span>
+                  <span style={{ fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>{formatCurrency(historyCheque.amount)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: '#64748b', fontWeight: '700' }}>Statut :</span>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    color: historyCheque.status === 'recouvré' ? '#065f46' : historyCheque.status === 'en_attente' ? '#92400e' : '#991b1b',
+                    backgroundColor: historyCheque.status === 'recouvré' ? '#d1fae5' : historyCheque.status === 'en_attente' ? '#fef3c7' : '#fee2e2',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    textTransform: 'uppercase'
+                  }}>
+                    {historyCheque.status === 'recouvré' ? 'Encaissé' : historyCheque.status === 'en_attente' ? 'En attente' : 'Impayé'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => { setShowHistoryModal(false); setHistoryCheque(null); }}>
+                Fermer
+              </button>
+            </div>
           </div>
         </div>
       )}
