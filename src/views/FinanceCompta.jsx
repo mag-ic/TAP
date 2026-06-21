@@ -570,8 +570,9 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                     <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TIERS</th>
                     <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RESPONSABLE</th>
                     <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>STATUT</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RESTE</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT GLOBAL</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT RÉGLÉ</th>
+                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT NON RÉGLÉ</th>
                     <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                   </tr>
                 </thead>
@@ -620,6 +621,9 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                         </td>
                         <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
                           {formatCurrency(total)}
+                        </td>
+                        <td style={{ padding: '20px 16px', fontWeight: '800', color: '#10b981', fontSize: '15px' }}>
+                          {formatCurrency(regle)}
                         </td>
                         <td style={{ padding: '20px 16px', fontWeight: '800', color: reste > 0 ? '#ef4444' : '#10b981', fontSize: '15px' }}>
                           {formatCurrency(reste)}
