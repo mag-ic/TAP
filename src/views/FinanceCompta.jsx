@@ -713,9 +713,26 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
               </button>
               <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Enregistrer un Règlement</h3>
               <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '12px 16px', marginBottom: '20px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase', marginBottom: '4px' }}>Réf. Document</div>
-                <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e3a8a' }}>{getBCReference(selectedTxForPayment.description)}</div>
-                <div style={{ fontSize: '12px', color: '#60a5fa', fontWeight: '600', marginTop: '2px' }}>Tiers : {selectedTxForPayment.partner_name || 'N/A'}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase' }}>Réf. Document</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e3a8a' }}>{getBCReference(selectedTxForPayment.description)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase' }}>Tiers</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e3a8a' }}>{selectedTxForPayment.partner_name || 'N/A'}</div>
+                  </div>
+                </div>
+                <div style={{ borderTop: '1px solid #dbeafe', paddingTop: '8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase' }}>Montant Global</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e3a8a' }}>{formatCurrency(getTxMetrics(selectedTxForPayment).total)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase' }}>Reste à régler</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>{formatCurrency(getTxMetrics(selectedTxForPayment).reste)}</div>
+                  </div>
+                </div>
               </div>
               <form onSubmit={handleSavePayment}>
                 <div className="form-group">
@@ -733,7 +750,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Montant Réglé (DH)</label>
+                    <label className="form-label">Montant à régler (DH)</label>
                     <input
                       type="number"
                       step="0.01"
