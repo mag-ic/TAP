@@ -603,8 +603,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     className="form-input"
                     value={receptionDate}
                     onChange={(e) => setReceptionDate(e.target.value)}
-                    onClick={(e) => e.currentTarget.showPicker()}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'pointer' }}
+                    onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
+                    style={{ backgroundColor: '#ffffff', color: '#334155', height: '46px', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'pointer' }}
                   />
                 </div>
 
@@ -847,8 +847,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     className="form-input"
                     value={avanceDate}
                     onChange={(e) => setAvanceDate(e.target.value)}
-                    onClick={(e) => e.currentTarget.showPicker()}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'pointer' }}
+                    onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
+                    style={{ backgroundColor: '#ffffff', color: '#334155', height: '46px', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'pointer' }}
                   />
                 </div>
 
@@ -1002,8 +1002,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     className="form-input"
                     value={venteDate}
                     onChange={(e) => setVenteDate(e.target.value)}
-                    onClick={(e) => e.currentTarget.showPicker()}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'pointer' }}
+                    onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
+                    style={{ backgroundColor: '#ffffff', color: '#334155', height: '46px', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'pointer' }}
                   />
                 </div>
 
@@ -1177,8 +1177,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     className="form-input"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    onClick={(e) => e.currentTarget.showPicker()}
-                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', cursor: 'pointer' }}
+                    onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
+                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -1188,8 +1188,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     className="form-input"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    onClick={(e) => e.currentTarget.showPicker()}
-                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', cursor: 'pointer' }}
+                    onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
+                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
                   />
                 </div>
                 <button 

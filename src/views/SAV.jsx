@@ -235,8 +235,8 @@ export default function SAV() {
                 type="date"
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
-                onClick={(e) => e.currentTarget.showPicker()}
-                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: '#ffffff', height: '40px', boxSizing: 'border-box', cursor: 'pointer' }}
+                onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
+                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: '#ffffff', color: '#334155', height: '40px', boxSizing: 'border-box', cursor: 'pointer' }}
               />
             </div>
 
