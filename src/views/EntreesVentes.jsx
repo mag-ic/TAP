@@ -804,7 +804,18 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                             <button className="action-icon-btn" style={{ color: '#f59e0b' }} onClick={() => alert("Edition de l'arrivage " + getBCReference(tx.description))} title="Modifier">
                               <Pencil size={16} />
                             </button>
-                            <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={() => alert("Génération du bon de réception PDF pour " + getBCReference(tx.description))} title="Facture PDF">
+                            <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={() => {
+                              const supplier = fournisseurs.find(f => f.name === tx.partner_name);
+                              printDocument({
+                                type: "BON D'ARRIVAGE",
+                                reference: getBCReference(tx.description),
+                                date: tx.date,
+                                clientName: tx.partner_name || 'Fournisseur Inconnu',
+                                clientICE: supplier?.ice || '',
+                                clientIF: supplier?.if_id || '',
+                                items: parseItems(tx.items)
+                              });
+                            }} title="Bon d'Arrivage PDF">
                               <FileText size={16} />
                             </button>
                           </div>

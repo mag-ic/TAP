@@ -2,6 +2,8 @@ export function printDocument({ type, reference, date, clientName, clientICE, cl
   const formattedDate = date || new Date().toISOString().split('T')[0];
   const docType = type || 'FACTURE'; // 'FACTURE' or 'BON DE LIVRAISON'
   const docRef = reference || 'INV-26-XXXX';
+  const isPurchase = docType.toUpperCase().includes('ARRIVAGE') || docType.toUpperCase().includes('RÉCEPTION') || docType.toUpperCase().includes('ACHAT');
+  const partnerLabel = isPurchase ? 'FOURNISSEUR' : 'CLIENT';
 
   const parsedItems = items || [];
   
@@ -266,7 +268,7 @@ export function printDocument({ type, reference, date, clientName, clientICE, cl
 
             <!-- Client Section -->
             <div class="client-section">
-              <div class="client-title">CLIENT :</div>
+              <div class="client-title">${partnerLabel} :</div>
               <div class="client-name">${clientName}</div>
               <div class="client-details">
                 ${clientICE ? `ICE: ${clientICE}<br />` : ''}
