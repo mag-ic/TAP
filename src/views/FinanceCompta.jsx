@@ -358,6 +358,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
     if (usingMockData) {
       setCheques([newCheque, ...cheques]);
+      mockCheques.unshift(newCheque);
       alert("Règlement enregistré avec succès (Mode Démo) !");
     } else {
       try {

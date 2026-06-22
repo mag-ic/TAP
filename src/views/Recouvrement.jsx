@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Search, Download, AlertCircle, ArrowDown, ArrowUp, Pencil, RotateCcw, X, Upload, Clock, Calendar } from 'lucide-react';
+import { Search, Download, AlertCircle, ArrowDown, ArrowUp, Pencil, RotateCcw, X, Upload, Clock, Calendar, Trash2 } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
 
 export default function Recouvrement() {
@@ -77,6 +77,35 @@ export default function Recouvrement() {
 
     setShowEditModal(false);
     setEditingCheque(null);
+  };
+
+  const handleDeleteCheque = async (chequeId, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce règlement ?")) {
+      return;
+    }
+
+    if (usingMockData) {
+      setCheques(prev => prev.filter(c => c.id !== chequeId));
+      const chqIndex = mockCheques.findIndex(c => c.id === chequeId);
+      if (chqIndex !== -1) {
+        mockCheques.splice(chqIndex, 1);
+      }
+      alert("Règlement supprimé avec succès (Mode Démo) !");
+    } else {
+      try {
+        const { error } = await supabase
+          .from('cheques')
+          .delete()
+          .eq('id', chequeId);
+
+        if (error) throw error;
+        alert("Règlement supprimé avec succès !");
+        await fetchCheques();
+      } catch (err) {
+        alert("Erreur lors de la suppression : " + err.message);
+      }
+    }
   };
 
   const handleResetFilters = () => {
@@ -449,7 +478,6 @@ export default function Recouvrement() {
                         <div style={{ display: 'inline-flex', gap: '12px' }}>
                           <button 
                             className="action-icon-btn" 
-                            style={{ color: '#cbd5e1', cursor: 'pointer', border: 'none', backgroundColor: 'transparent' }}
                             onClick={(e) => {
                               e.stopPropagation();
                               setHistoryCheque(chq);
@@ -457,15 +485,21 @@ export default function Recouvrement() {
                             }} 
                             title="Historique du règlement"
                           >
-                            <Clock size={15} style={{ color: '#94a3b8' }} />
+                            <Clock size={15} />
                           </button>
                           <button 
                             className="action-icon-btn" 
-                            style={{ color: '#cbd5e1', cursor: 'pointer', border: 'none', backgroundColor: 'transparent' }}
                             onClick={(e) => handleEditClick(chq, e)} 
                             title="Modifier le statut"
                           >
-                            <Pencil size={15} style={{ color: '#94a3b8' }} />
+                            <Pencil size={15} />
+                          </button>
+                          <button 
+                            className="action-icon-btn delete" 
+                            onClick={(e) => handleDeleteCheque(chq.id, e)} 
+                            title="Supprimer le règlement"
+                          >
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
