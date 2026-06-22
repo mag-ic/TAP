@@ -516,7 +516,8 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
             <input
               type="date"
               className="form-input"
-              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1' }}
+              onClick={(e) => e.currentTarget.showPicker()}
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', cursor: 'pointer' }}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
@@ -527,7 +528,8 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
             <input
               type="date"
               className="form-input"
-              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1' }}
+              onClick={(e) => e.currentTarget.showPicker()}
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', cursor: 'pointer' }}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
@@ -819,6 +821,8 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                     <input
                       type="date"
                       className="form-input"
+                      onClick={(e) => e.currentTarget.showPicker()}
+                      style={{ backgroundColor: '#ffffff', cursor: 'pointer' }}
                       value={paymentDate}
                       onChange={(e) => setPaymentDate(e.target.value)}
                       required
