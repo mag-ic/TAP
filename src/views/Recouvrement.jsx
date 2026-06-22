@@ -265,15 +265,15 @@ export default function Recouvrement() {
     .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   const pendingEncaissement = cheques
-    .filter(c => c.type === 'IN' && (c.status === 'impayé' || c.status === 'en_attente'))
+    .filter(c => c.type === 'IN' && (c.status === 'impayé' || c.status === 'en_attente' || c.status === 'déposé'))
     .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   const totalFournisseurs = cheques
     .filter(c => c.type === 'OUT')
     .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
-  // Dynamic passed echeances count
-  const passedCount = cheques.filter(c => c.status !== 'recouvré' && new Date(c.due_date) < new Date()).length;
+  // Dynamic passed echeances count (only count deposited cheques that are past due)
+  const passedCount = cheques.filter(c => c.status === 'déposé' && new Date(c.due_date) < new Date()).length;
 
   return (
     <div className="stock-page-container">
@@ -435,7 +435,7 @@ export default function Recouvrement() {
               <tbody>
                 {filteredCheques.map((chq) => {
                   const isClient = chq.type === 'IN';
-                  const isOverdue = chq.status !== 'recouvré' && new Date(chq.due_date) < new Date();
+                  const isOverdue = chq.status === 'déposé' && new Date(chq.due_date) < new Date();
 
                   // Badges status color mapping
                   let statusBg = '#fee2e2';
