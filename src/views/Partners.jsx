@@ -885,7 +885,8 @@ export default function Partners() {
                                 </thead>
                                 <tbody>
                                   {partnerCheques.map(c => {
-                                    const statusColor = c.status === 'recouvré' ? '#10b981' : (c.status === 'impayé' ? '#ef4444' : '#f59e0b');
+                                    const statusColor = c.status === 'recouvré' ? '#10b981' : (c.status === 'déposé' ? '#0284c7' : (c.status === 'impayé' ? '#ef4444' : '#f59e0b'));
+                                    const statusText = c.status === 'recouvré' ? 'ENCAISSÉ' : (c.status === 'déposé' ? 'DÉPOSÉ' : (c.status === 'impayé' ? 'IMPAYÉ' : 'EN ATTENTE'));
 
                                     return (
                                       <tr key={c.id} style={{ borderBottom: '1px solid #f8fafc' }}>
@@ -918,7 +919,7 @@ export default function Partners() {
                                             backgroundColor: statusColor + '15',
                                             color: statusColor
                                           }}>
-                                            {c.status}
+                                            {statusText}
                                           </span>
                                         </td>
                                       </tr>

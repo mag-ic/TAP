@@ -108,6 +108,30 @@ export default function Recouvrement() {
     }
   };
 
+  const handleUpdateStatusDirect = async (chequeId, newStatus, e) => {
+    e.stopPropagation();
+    
+    if (usingMockData) {
+      setCheques(prev => prev.map(c => c.id === chequeId ? { ...c, status: newStatus } : c));
+      const chqIndex = mockCheques.findIndex(c => c.id === chequeId);
+      if (chqIndex !== -1) {
+        mockCheques[chqIndex].status = newStatus;
+      }
+    } else {
+      try {
+        const { error } = await supabase
+          .from('cheques')
+          .update({ status: newStatus })
+          .eq('id', chequeId);
+
+        if (error) throw error;
+        await fetchCheques();
+      } catch (err) {
+        alert("Erreur lors de la mise à jour du statut : " + err.message);
+      }
+    }
+  };
+
   const handleResetFilters = () => {
     setSearchTerm('');
     setFilterType('TOUS');
@@ -124,7 +148,7 @@ export default function Recouvrement() {
       c.due_date || '',
       `"${c.partner_name || ''}"`,
       c.reference || '',
-      c.status === 'recouvré' ? 'Encaissé' : c.status === 'impayé' ? 'Impayé' : 'En attente',
+      c.status === 'recouvré' ? 'Encaissé' : c.status === 'déposé' ? 'Déposé' : c.status === 'impayé' ? 'Impayé' : 'En attente',
       c.amount || 0
     ]);
 
@@ -174,6 +198,8 @@ export default function Recouvrement() {
         let status = 'en_attente';
         if (rawStatus.includes('recouvr') || rawStatus.includes('encais') || rawStatus.includes('clear')) {
           status = 'recouvré';
+        } else if (rawStatus.includes('depos') || rawStatus.includes('remis') || rawStatus.includes('sent')) {
+          status = 'déposé';
         } else if (rawStatus.includes('impay') || rawStatus.includes('bounce') || rawStatus.includes('reject')) {
           status = 'impayé';
         }
@@ -371,6 +397,7 @@ export default function Recouvrement() {
           >
             <option value="all">Tous les statuts</option>
             <option value="recouvré">Encaissé</option>
+            <option value="déposé">Déposé</option>
             <option value="impayé">Impayé</option>
             <option value="en_attente">En attente</option>
           </select>
@@ -423,6 +450,10 @@ export default function Recouvrement() {
                     statusBg = '#fef3c7';
                     statusColor = '#92400e';
                     statusLabel = 'EN ATTENTE';
+                  } else if (chq.status === 'déposé') {
+                    statusBg = '#e0f2fe';
+                    statusColor = '#0369a1';
+                    statusLabel = 'DÉPOSÉ';
                   }
 
                   return (
@@ -475,7 +506,55 @@ export default function Recouvrement() {
                         {formatCurrency(chq.amount)}
                       </td>
                       <td style={{ padding: '16px 12px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '12px' }}>
+                        <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
+                          <button 
+                            onClick={(e) => handleUpdateStatusDirect(chq.id, 'déposé', e)}
+                            className="btn"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              borderRadius: '6px',
+                              backgroundColor: chq.status === 'déposé' ? '#f1f5f9' : '#eff6ff',
+                              color: chq.status === 'déposé' ? '#94a3b8' : '#2563eb',
+                              border: '1px solid ' + (chq.status === 'déposé' ? '#e2e8f0' : '#bfdbfe'),
+                              cursor: chq.status === 'déposé' ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.2s',
+                              height: '24px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              lineHeight: '1'
+                            }}
+                            title="Marquer comme Déposé"
+                            disabled={chq.status === 'déposé'}
+                          >
+                            Déposer
+                          </button>
+                          <button 
+                            onClick={(e) => handleUpdateStatusDirect(chq.id, 'recouvré', e)}
+                            className="btn"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              borderRadius: '6px',
+                              backgroundColor: chq.status === 'recouvré' ? '#f1f5f9' : '#ecfdf5',
+                              color: chq.status === 'recouvré' ? '#94a3b8' : '#059669',
+                              border: '1px solid ' + (chq.status === 'recouvré' ? '#e2e8f0' : '#a7f3d0'),
+                              cursor: chq.status === 'recouvré' ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.2s',
+                              height: '24px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              lineHeight: '1'
+                            }}
+                            title="Marquer comme Encaissé"
+                            disabled={chq.status === 'recouvré'}
+                          >
+                            Encaisser
+                          </button>
                           <button 
                             className="action-icon-btn" 
                             onClick={(e) => {
@@ -544,6 +623,7 @@ export default function Recouvrement() {
                   onChange={(e) => setEditStatus(e.target.value)}
                 >
                   <option value="recouvré">Encaissé</option>
+                  <option value="déposé">Déposé</option>
                   <option value="impayé">Impayé</option>
                   <option value="en_attente">En attente</option>
                 </select>
