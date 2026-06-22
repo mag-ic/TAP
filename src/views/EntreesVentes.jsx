@@ -4,6 +4,7 @@ import { mockTransactions, mockPartners, mockStock } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
 import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, Download, Upload, Eye, Pencil, FileText, Trash2, X, History, MapPin, RotateCcw, Box } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
+import { printDocument } from '../lib/printHelper';
 
 export default function EntreesVentes({ initialTab = 'entrees' }) {
   const [transactions, setTransactions] = useState([]);
@@ -1237,7 +1238,19 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                                 <button className="action-icon-btn" style={{ color: '#f59e0b' }} onClick={(e) => { e.stopPropagation(); alert("Edition du BL " + getBLReference(tx.description)); }} title="Modifier">
                                   <Pencil size={16} />
                                 </button>
-                                <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={(e) => { e.stopPropagation(); alert("Impression du Bon de Livraison (BL) PDF pour " + getBLReference(tx.description)); }} title="BL PDF">
+                                <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={(e) => {
+                                   e.stopPropagation();
+                                   const client = clients.find(c => c.name === tx.partner_name);
+                                   printDocument({
+                                     type: 'BON DE LIVRAISON',
+                                     reference: getBLReference(tx.description),
+                                     date: tx.date,
+                                     clientName: tx.partner_name || 'Client Inconnu',
+                                     clientICE: client?.ice || '',
+                                     clientIF: client?.if_id || '',
+                                     items: parseItems(tx.items)
+                                   });
+                                 }} title="BL PDF">
                                   <FileText size={16} />
                                 </button>
                               </div>

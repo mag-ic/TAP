@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { mockTransactions, mockCheques } from '../lib/mockData';
+import { mockTransactions, mockCheques, mockPartners } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
 import { Plus, Search, RefreshCw, Download, Pencil, Clock, FileText, X, RotateCcw, Calendar, User, Info, PieChart, BarChart3, BookOpen, Calculator, Upload } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
+import { printDocument } from '../lib/printHelper';
 
 export default function FinanceCompta({ initialMode = 'finance' }) {
   const [transactions, setTransactions] = useState([]);
   const [cheques, setCheques] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [partners, setPartners] = useState([]);
   
   // Tab/view states
   const [activeSubTab, setActiveSubTab] = useState('factures'); // For Finance: 'factures' | 'achats' | 'charges' | 'apports'
@@ -49,14 +51,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
       if (txError) throw new Error('DB tables missing');
 
       const { data: chqData } = await supabase.from('cheques').select('*');
+      const { data: partnerData } = await supabase.from('partners').select('*');
 
       setTransactions(txData || []);
       setCheques(chqData || []);
+      setPartners(partnerData || []);
       setUsingMockData(false);
     } catch (err) {
       setUsingMockData(true);
       setTransactions(mockTransactions);
       setCheques(mockCheques);
+      setPartners(mockPartners);
     } finally {
       setLoading(false);
     }
@@ -71,6 +76,16 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
     if (!description) return 'INV-26-XXXX';
     const match = description.match(/(BC-\d+-\d+|BC\d+|AR-\d+-\d+|AR\d+|INV-\d+-\d+)/);
     return match ? match[0] : (description.replace('Entrée ', '').replace('Facture ', '').split(' - ')[0] || description);
+  };
+
+  const parseItems = (itemsStr) => {
+    if (!itemsStr) return [];
+    try {
+      if (typeof itemsStr === 'object') return itemsStr;
+      return JSON.parse(itemsStr);
+    } catch (e) {
+      return [];
+    }
   };
 
   // Helper to compute total, regle, and reste for a transaction
@@ -641,7 +656,23 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                             <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={() => alert("Historique du règlement")} title="Historique">
                               <Clock size={16} />
                             </button>
-                            <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={() => alert("Impression du reçu PDF")} title="PDF Justificatif">
+                            <button 
+                              className="action-icon-btn" 
+                              style={{ color: '#cbd5e1', cursor: 'pointer' }} 
+                              onClick={() => {
+                                const client = partners.find(p => p.name === tx.partner_name);
+                                printDocument({
+                                  type: (tx.type === 'vente' || tx.type === 'revenu') ? 'FACTURE' : 'BON DE LIVRAISON',
+                                  reference: getBCReference(tx.description),
+                                  date: tx.date,
+                                  clientName: tx.partner_name || 'Client Inconnu',
+                                  clientICE: client?.ice || '',
+                                  clientIF: client?.if_id || '',
+                                  items: parseItems(tx.items)
+                                });
+                              }} 
+                              title="PDF Justificatif"
+                            >
                               <FileText size={16} />
                             </button>
                           </div>
