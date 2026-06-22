@@ -595,6 +595,9 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                 <tbody>
                   {filteredTxs.map((tx) => {
                     const { total, regle, reste } = getTxMetrics(tx);
+                    const ref = getBCReference(tx.description);
+                    const txCheques = cheques.filter(c => c.reference === ref || tx.description?.includes(c.reference));
+                    const hasImpayeCheque = txCheques.some(c => c.status === 'impayé');
                     
                     let statusText = 'IMPAYÉ';
                     let statusColor = '#ef4444';
@@ -631,9 +634,27 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                           ---
                         </td>
                         <td style={{ padding: '20px 16px' }}>
-                          <span style={{ color: statusColor, backgroundColor: statusBg, fontSize: '10px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', letterSpacing: '0.5px' }}>
-                            {statusText}
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                            <span style={{ color: statusColor, backgroundColor: statusBg, fontSize: '10px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', letterSpacing: '0.5px', display: 'inline-block' }}>
+                              {statusText}
+                            </span>
+                            {hasImpayeCheque && (
+                              <span style={{ 
+                                backgroundColor: '#fee2e2', 
+                                color: '#dc2626', 
+                                fontSize: '10px', 
+                                fontWeight: '800', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                border: '1px solid #fca5a5'
+                              }}>
+                                ⚠️ CHÈQUE IMPAYÉ
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
                           {formatCurrency(total)}

@@ -302,17 +302,24 @@ export default function Partners() {
   // Helper to calculate Volume d'affaires and Encours for a partner
   const getPartnerMetrics = (partner) => {
     const partnerCheques = cheques.filter(c => c.partner_name?.toLowerCase() === partner.name?.toLowerCase());
-    const impayeChequesSum = partnerCheques.filter(c => c.status === 'impayé').reduce((acc, c) => acc + (c.amount || 0), 0);
-    
     const partnerTx = transactions.filter(t => t.partner_name?.toLowerCase() === partner.name?.toLowerCase());
+    
     const volume = partnerTx.reduce((acc, t) => acc + (t.amount || 0), 0);
     
     let encours = 0;
-    if (impayeChequesSum > 0) {
-      encours = impayeChequesSum;
-    } else {
-      encours = partnerTx.filter(t => t.status === 'annulé' || t.status === 'en_attente').reduce((acc, t) => acc + (t.amount || 0), 0);
-    }
+    partnerTx.forEach(t => {
+      const { reste } = getTxMetrics(t);
+      encours += reste;
+    });
+    
+    const linkedRefs = partnerTx.map(t => getBCReference(t.description));
+    const unlinkedImpayes = partnerCheques.filter(c => 
+      c.status === 'impayé' && 
+      !linkedRefs.includes(c.reference) && 
+      !partnerTx.some(t => t.description?.includes(c.reference))
+    );
+    const unlinkedImpayesSum = unlinkedImpayes.reduce((acc, c) => acc + (c.amount || 0), 0);
+    encours += unlinkedImpayesSum;
 
     return { volume, encours };
   };
@@ -518,7 +525,31 @@ export default function Partners() {
                         {formatCurrency(volume)}
                       </td>
                       <td style={{ padding: '20px 16px', fontWeight: '700', color: encours > 0 ? '#ef4444' : '#10b981', fontSize: '14px' }}>
-                        {formatCurrency(encours)}
+                        {(() => {
+                          const partnerCheques = cheques.filter(c => c.partner_name?.toLowerCase() === partner.name?.toLowerCase());
+                          const hasImpayeCheque = partnerCheques.some(c => c.status === 'impayé');
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>{formatCurrency(encours)}</span>
+                              {hasImpayeCheque && (
+                                <span style={{ 
+                                  backgroundColor: '#fee2e2', 
+                                  color: '#dc2626', 
+                                  fontSize: '10px', 
+                                  fontWeight: '800', 
+                                  padding: '2px 6px', 
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  border: '1px solid #fca5a5'
+                                }} title="Ce partenaire possède au moins un chèque impayé">
+                                  ⚠️ IMPAYÉ
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td style={{ padding: '20px 16px', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>

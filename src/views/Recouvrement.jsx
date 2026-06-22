@@ -556,6 +556,30 @@ export default function Recouvrement() {
                             Encaisser
                           </button>
                           <button 
+                            onClick={(e) => handleUpdateStatusDirect(chq.id, 'impayé', e)}
+                            className="btn"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              borderRadius: '6px',
+                              backgroundColor: chq.status === 'impayé' ? '#f1f5f9' : '#fef2f2',
+                              color: chq.status === 'impayé' ? '#94a3b8' : '#dc2626',
+                              border: '1px solid ' + (chq.status === 'impayé' ? '#e2e8f0' : '#fca5a5'),
+                              cursor: chq.status === 'impayé' ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.2s',
+                              height: '24px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              lineHeight: '1'
+                            }}
+                            title="Marquer comme Impayé"
+                            disabled={chq.status === 'impayé'}
+                          >
+                            Impayé
+                          </button>
+                          <button 
                             className="action-icon-btn" 
                             onClick={(e) => {
                               e.stopPropagation();
