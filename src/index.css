@@ -6,17 +6,17 @@
   font-weight: 400;
 
   color-scheme: dark;
-  --bg-main: #07090e;
-  --bg-sidebar: #0b0e17;
-  --bg-card: rgba(18, 22, 35, 0.6);
-  --bg-card-hover: rgba(25, 30, 48, 0.8);
+  --bg-main: #000000;
+  --bg-sidebar: #080808;
+  --bg-card: #0e0e0e;
+  --bg-card-hover: #141414;
   
   --primary: #2563eb;
   --primary-glow: rgba(37, 99, 235, 0.15);
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  --border-color: rgba(255, 255, 255, 0.06);
+  --border-color: rgba(255, 255, 255, 0.08);
 
   --success: #10b981;
   --warning: #f59e0b;
