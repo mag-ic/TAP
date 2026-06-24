@@ -919,7 +919,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                 </h3>
                 
                 <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '16px', marginBottom: '12px', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Réf. Document</div>
                       <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>{displayRef}</div>
@@ -927,6 +927,39 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                     <div>
                       <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tiers / Partenaire</div>
                       <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>{selectedTxForHistory.partner_name || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <button
+                        className="btn btn-white"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                          color: '#60a5fa',
+                          border: '1px solid rgba(37, 99, 235, 0.25)',
+                          cursor: 'pointer',
+                          borderRadius: '8px'
+                        }}
+                        onClick={() => {
+                          const client = partners.find(p => p.name === selectedTxForHistory.partner_name);
+                          printDocument({
+                            type: (selectedTxForHistory.type === 'vente' || selectedTxForHistory.type === 'revenu') ? 'FACTURE' : 'BON DE LIVRAISON',
+                            reference: displayRef,
+                            date: selectedTxForHistory.date,
+                            clientName: selectedTxForHistory.partner_name || 'Client Inconnu',
+                            clientICE: client?.ice || '',
+                            clientIF: client?.if_id || '',
+                            items: parseItems(selectedTxForHistory.items)
+                          });
+                        }}
+                        title="Générer le PDF de cette Facture"
+                      >
+                        <FileText size={14} /> Facture PDF
+                      </button>
                     </div>
                   </div>
                   <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
