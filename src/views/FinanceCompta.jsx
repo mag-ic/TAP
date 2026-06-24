@@ -75,11 +75,23 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
     fetchData();
   }, []);
 
-  // Helper to extract BC/AR reference from description
   const getBCReference = (description) => {
     if (!description) return 'INV-26-XXXX';
     const match = description.match(/(BC-\d+-\d+|BC\d+|AR-\d+-\d+|AR\d+|INV-\d+-\d+)/);
     return match ? match[0] : (description.replace('Entrée ', '').replace('Facture ', '').split(' - ')[0] || description);
+  };
+
+  const getDisplayReference = (description) => {
+    if (!description) return 'INV-26-XXXX';
+    const blMatch = description.match(/(BL-\d+-\d+|BL\d+)/);
+    if (blMatch) {
+      return blMatch[0].replace('BL-', 'FACTURE-').replace('BL', 'FACTURE-');
+    }
+    const ref = getBCReference(description);
+    if (ref.startsWith('BL-') || ref.startsWith('BL')) {
+      return ref.replace('BL-', 'FACTURE-').replace('BL', 'FACTURE-');
+    }
+    return ref;
   };
 
   const parseItems = (itemsStr) => {
@@ -632,7 +644,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                     return (
                       <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
                         <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
-                          {getBCReference(tx.description)}
+                          {getDisplayReference(tx.description)}
                         </td>
                         <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
                           {tx.date}
@@ -697,7 +709,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                                 const client = partners.find(p => p.name === tx.partner_name);
                                 printDocument({
                                   type: (tx.type === 'vente' || tx.type === 'revenu') ? 'FACTURE' : 'BON DE LIVRAISON',
-                                  reference: getBCReference(tx.description),
+                                  reference: getDisplayReference(tx.description),
                                   date: tx.date,
                                   clientName: tx.partner_name || 'Client Inconnu',
                                   clientICE: client?.ice || '',
@@ -781,7 +793,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '8px' }}>
                   <div>
                     <div style={{ fontSize: '10px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase' }}>Réf. Document</div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e3a8a' }}>{getBCReference(selectedTxForPayment.description)}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e3a8a' }}>{getDisplayReference(selectedTxForPayment.description)}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: '10px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase' }}>Tiers</div>
@@ -881,6 +893,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
         {showHistoryModal && selectedTxForHistory && (() => {
           const metrics = getTxMetrics(selectedTxForHistory);
           const ref = getBCReference(selectedTxForHistory.description);
+          const displayRef = getDisplayReference(selectedTxForHistory.description);
           
           let txCheques = cheques.filter(c => c.reference === ref || selectedTxForHistory.description.includes(c.reference));
           
@@ -909,7 +922,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
                     <div>
                       <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Réf. Document</div>
-                      <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>{ref}</div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>{displayRef}</div>
                     </div>
                     <div>
                       <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tiers / Partenaire</div>
