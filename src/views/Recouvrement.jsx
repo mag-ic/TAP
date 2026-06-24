@@ -24,9 +24,9 @@ export default function Recouvrement() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyCheque, setHistoryCheque] = useState(null);
 
-  const fetchCheques = async () => {
+  const fetchCheques = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const { data, error } = await supabase
         .from('cheques')
         .select('*')
@@ -40,7 +40,7 @@ export default function Recouvrement() {
       setUsingMockData(true);
       setCheques(mockCheques);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -69,7 +69,7 @@ export default function Recouvrement() {
           .eq('id', editingCheque.id);
 
         if (error) throw error;
-        await fetchCheques();
+        await fetchCheques(true);
       } catch (err) {
         alert("Erreur lors de la mise à jour : " + err.message);
       }
@@ -101,7 +101,7 @@ export default function Recouvrement() {
 
         if (error) throw error;
         alert("Règlement supprimé avec succès !");
-        await fetchCheques();
+        await fetchCheques(true);
       } catch (err) {
         alert("Erreur lors de la suppression : " + err.message);
       }
@@ -125,7 +125,7 @@ export default function Recouvrement() {
           .eq('id', chequeId);
 
         if (error) throw error;
-        await fetchCheques();
+        await fetchCheques(true);
       } catch (err) {
         alert("Erreur lors de la mise à jour du statut : " + err.message);
       }
@@ -228,7 +228,7 @@ export default function Recouvrement() {
           const { error } = await supabase.from('cheques').insert(newCheques);
           if (error) throw error;
           alert(`${newCheques.length} chèques importés avec succès dans la base de données !`);
-          await fetchCheques();
+          await fetchCheques(true);
         } catch (err) {
           alert("Erreur lors de l'importation : " + err.message);
         }
