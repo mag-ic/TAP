@@ -301,8 +301,8 @@ export default function Partners() {
 
   // Helper to calculate Volume d'affaires and Encours for a partner
   const getPartnerMetrics = (partner) => {
-    const partnerCheques = cheques.filter(c => c.partner_name?.toLowerCase() === partner.name?.toLowerCase());
-    const partnerTx = transactions.filter(t => t.partner_name?.toLowerCase() === partner.name?.toLowerCase());
+    const partnerCheques = cheques.filter(c => c.partner_name?.trim().toLowerCase() === partner.name?.trim().toLowerCase());
+    const partnerTx = transactions.filter(t => t.partner_name?.trim().toLowerCase() === partner.name?.trim().toLowerCase());
     
     const volume = partnerTx.reduce((acc, t) => acc + (t.amount || 0), 0);
     
@@ -526,7 +526,7 @@ export default function Partners() {
                       </td>
                       <td style={{ padding: '20px 16px', fontWeight: '700', color: encours > 0 ? 'var(--danger)' : 'var(--success)', fontSize: '14px' }}>
                         {(() => {
-                          const partnerCheques = cheques.filter(c => c.partner_name?.toLowerCase() === partner.name?.toLowerCase());
+                          const partnerCheques = cheques.filter(c => c.partner_name?.trim().toLowerCase() === partner.name?.trim().toLowerCase());
                           const hasImpayeCheque = partnerCheques.some(c => c.status === 'impayé');
                           return (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -726,7 +726,7 @@ export default function Partners() {
                 {/* 3 Metrics Cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                   {(() => {
-                    const partnerTxs = transactions.filter(t => t.partner_name?.toLowerCase() === selectedPartner.name?.toLowerCase());
+                    const partnerTxs = transactions.filter(t => t.partner_name?.trim().toLowerCase() === selectedPartner.name?.trim().toLowerCase());
                     let totalInvoiced = 0;
                     let totalPaid = 0;
                     let totalRemaining = 0;
@@ -787,8 +787,12 @@ export default function Partners() {
                 {/* History Table Container */}
                 <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', flexGrow: 1, boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
                   {(() => {
-                    const partnerTxs = transactions.filter(t => t.partner_name?.toLowerCase() === selectedPartner.name?.toLowerCase());
-                    const partnerCheques = cheques.filter(c => c.partner_name?.toLowerCase() === selectedPartner.name?.toLowerCase());
+                    const partnerTxs = transactions
+                      .filter(t => t.partner_name?.trim().toLowerCase() === selectedPartner.name?.trim().toLowerCase())
+                      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                    const partnerCheques = cheques
+                      .filter(c => c.partner_name?.trim().toLowerCase() === selectedPartner.name?.trim().toLowerCase())
+                      .sort((a, b) => (b.due_date || b.received_date || '').localeCompare(a.due_date || a.received_date || ''));
 
                     return (
                       <>
