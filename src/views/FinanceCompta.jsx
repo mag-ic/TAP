@@ -40,6 +40,10 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
   const [paymentBank, setPaymentBank] = useState('');
   const [paymentNumber, setPaymentNumber] = useState('');
 
+  // History Modal States
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedTxForHistory, setSelectedTxForHistory] = useState(null);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -376,6 +380,12 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
     setSelectedTxForPayment(null);
   };
 
+  const handleHistoryClick = (tx, e) => {
+    if (e) e.stopPropagation();
+    setSelectedTxForHistory(tx);
+    setShowHistoryModal(true);
+  };
+
   // --- 2. COMPTA TAB LOGIC (Standard PCM marocain) ---
   const getComptaMetrics = () => {
     const stockMarchandises = 0.00;
@@ -677,7 +687,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                             <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={(e) => handleEditClick(tx, e)} title="Modifier">
                               <Pencil size={16} />
                             </button>
-                            <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={() => alert("Historique du règlement")} title="Historique">
+                            <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={(e) => handleHistoryClick(tx, e)} title="Historique">
                               <Clock size={16} />
                             </button>
                             <button 
@@ -867,6 +877,121 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
             </div>
           </div>
         )}
+
+        {showHistoryModal && selectedTxForHistory && (() => {
+          const metrics = getTxMetrics(selectedTxForHistory);
+          const ref = getBCReference(selectedTxForHistory.description);
+          
+          let txCheques = cheques.filter(c => c.reference === ref || selectedTxForHistory.description.includes(c.reference));
+          
+          if (txCheques.length === 0 && metrics.regle > 0) {
+            txCheques = [{
+              id: 'fallback-' + selectedTxForHistory.id,
+              received_date: selectedTxForHistory.date,
+              bank: selectedTxForHistory.payment_method || 'Virement',
+              number: 'Initial / Importé',
+              amount: metrics.regle,
+              status: selectedTxForHistory.status === 'confirmé' ? 'recouvré' : 'en_attente'
+            }];
+          }
+
+          return (
+            <div className="modal-overlay">
+              <div className="modal-content" style={{ color: 'var(--text-primary)', maxWidth: '650px', width: '90%' }}>
+                <button className="modal-close" onClick={() => { setShowHistoryModal(false); setSelectedTxForHistory(null); }}>
+                  <X size={20} />
+                </button>
+                <h3 className="top-bar-title" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Clock size={20} style={{ color: '#2563eb' }} /> Historique des Règlements
+                </h3>
+                
+                <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Réf. Document</div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>{ref}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tiers / Partenaire</div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>{selectedTxForHistory.partner_name || 'N/A'}</div>
+                    </div>
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Montant Global</div>
+                      <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>{formatCurrency(metrics.total)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Réglé</div>
+                      <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--success)', marginTop: '2px' }}>{formatCurrency(metrics.regle)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Reste à payer</div>
+                      <div style={{ fontSize: '15px', fontWeight: '800', color: metrics.reste > 0 ? 'var(--danger)' : 'var(--success)', marginTop: '2px' }}>{formatCurrency(metrics.reste)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <h4 style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Détails des Règlements ({txCheques.length})</h4>
+                
+                {txCheques.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', backgroundColor: 'rgba(255, 255, 255, 0.01)', borderRadius: '12px', border: '1px dashed var(--border-color)', color: 'var(--text-secondary)' }}>
+                    Aucun règlement enregistré pour cette transaction.
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '700' }}>Date</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '700' }}>Nature / Mode</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '700' }}>Réf / N°</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '700' }}>Montant</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '700' }}>Statut</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {txCheques.map((c) => {
+                          let mode = c.bank || 'Espèces';
+                          const isChq = c.id?.startsWith('chq-') || c.number?.length > 7;
+                          if (isChq && c.bank && c.bank !== 'Virement' && c.bank !== 'Espèces' && c.bank !== 'Effet') {
+                            mode = 'Chèque (' + c.bank + ')';
+                          } else if (c.bank === 'Virement') {
+                            mode = 'Virement';
+                          } else if (c.bank === 'Espèces') {
+                            mode = 'Espèces';
+                          } else if (c.bank === 'Effet') {
+                            mode = 'Effet';
+                          }
+                          
+                          return (
+                            <tr key={c.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                              <td style={{ padding: '12px', color: 'var(--text-primary)' }}>{c.received_date || c.due_date}</td>
+                              <td style={{ padding: '12px', color: 'var(--text-primary)', fontWeight: '600' }}>{mode}</td>
+                              <td style={{ padding: '12px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{c.number || '-'}</td>
+                              <td style={{ padding: '12px', color: 'var(--success)', fontWeight: '700' }}>{formatCurrency(c.amount)}</td>
+                              <td style={{ padding: '12px' }}>
+                                <span className={`badge ${c.status}`} style={{ fontSize: '10px', padding: '2px 6px' }}>
+                                  {c.status === 'recouvré' || c.status === 'payé' ? 'payé' : (c.status === 'en_attente' ? 'en attente' : c.status)}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
+                  <button type="button" className="btn btn-white" onClick={() => { setShowHistoryModal(false); setSelectedTxForHistory(null); }}>
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
