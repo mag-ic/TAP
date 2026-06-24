@@ -14,6 +14,8 @@ export default function Recouvrement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('TOUS'); // 'TOUS' | 'CLIENTS' | 'FOURNIS.'
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'recouvré' | 'impayé' | 'en_attente'
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Edit Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -136,6 +138,8 @@ export default function Recouvrement() {
     setSearchTerm('');
     setFilterType('TOUS');
     setFilterStatus('all');
+    setStartDate('');
+    setEndDate('');
   };
 
   const handleExportCSV = () => {
@@ -256,7 +260,15 @@ export default function Recouvrement() {
       filterStatus === 'all' || 
       c.status === filterStatus;
 
-    return matchesSearch && matchesType && matchesStatus;
+    let matchesDate = true;
+    if (startDate) {
+      matchesDate = matchesDate && c.due_date >= startDate;
+    }
+    if (endDate) {
+      matchesDate = matchesDate && c.due_date <= endDate;
+    }
+
+    return matchesSearch && matchesType && matchesStatus && matchesDate;
   });
 
   // Calculate dynamic stats
@@ -280,10 +292,10 @@ export default function Recouvrement() {
       {/* Header */}
       <div className="catalog-header" style={{ marginBottom: '28px' }}>
         <div className="catalog-title-wrapper">
-          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+          <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
             Recouvrement Chèques
           </h1>
-          <p className="catalog-subtitle" style={{ fontSize: '14px', color: '#64748b', fontWeight: '500', marginTop: '4px' }}>
+          <p className="catalog-subtitle" style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '500', marginTop: '4px' }}>
             Suivi individuel et rigoureux de chaque titre de paiement.
           </p>
         </div>
@@ -304,8 +316,8 @@ export default function Recouvrement() {
           </button>
           
           {passedCount > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fee2e2', color: '#dc2626', padding: '8px 16px', borderRadius: '30px', fontSize: '12px', fontWeight: '800', letterSpacing: '0.5px' }}>
-              <AlertCircle size={14} style={{ color: '#dc2626' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '8px 16px', borderRadius: '30px', fontSize: '12px', fontWeight: '800', letterSpacing: '0.5px' }}>
+              <AlertCircle size={14} style={{ color: '#ef4444' }} />
               <span>{passedCount} ÉCHÉANCES PASSÉES</span>
             </div>
           )}
@@ -315,52 +327,53 @@ export default function Recouvrement() {
       {/* KPI Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '28px' }}>
         {/* Card 1 */}
-        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-          <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+        <div className="glass-card">
+          <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
             Total Chèques Clients
           </div>
-          <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>
+          <div style={{ fontSize: '24px', fontWeight: '900', color: 'var(--text-primary)' }}>
             {Math.round(totalClients)} DH
           </div>
         </div>
 
         {/* Card 2 */}
-        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-          <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+        <div className="glass-card">
+          <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
             En attente d'encaissement
           </div>
-          <div style={{ fontSize: '24px', fontWeight: '900', color: '#d97706' }}>
+          <div style={{ fontSize: '24px', fontWeight: '900', color: '#fbbf24' }}>
             {Math.round(pendingEncaissement)} DH
           </div>
         </div>
 
         {/* Card 3 */}
-        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-          <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+        <div className="glass-card">
+          <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
             Total Chèques Fournisseurs
           </div>
-          <div style={{ fontSize: '24px', fontWeight: '900', color: '#dc2626' }}>
+          <div style={{ fontSize: '24px', fontWeight: '900', color: '#ef4444' }}>
             {formatCurrency(totalFournisseurs)}
           </div>
         </div>
       </div>
 
       {/* Filter Capsule Bar */}
-      <div className="catalog-filter-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+      <div className="catalog-filter-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '16px', marginBottom: '28px' }}>
         {/* Search */}
         <div className="search-input-wrapper" style={{ flexGrow: 1 }}>
-          <Search size={18} className="search-icon" style={{ color: '#94a3b8' }} />
+          <Search size={18} className="search-icon" style={{ color: 'var(--text-secondary)' }} />
           <input
             type="text"
             placeholder="N°, Tiers, Réf..."
             className="form-input search-input-catalog"
+            style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', paddingLeft: '42px', height: '40px', width: '100%', borderRadius: '12px', outline: 'none' }}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
         {/* Switch Type Tabs */}
-        <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
+        <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: 'var(--bg-sidebar)', borderRadius: '12px', display: 'inline-flex' }}>
           {['TOUS', 'CLIENTS', 'FOURNIS.'].map(type => (
             <button
               key={type}
@@ -371,9 +384,9 @@ export default function Recouvrement() {
                 letterSpacing: '0.5px',
                 padding: '8px 16px',
                 borderRadius: '10px',
-                backgroundColor: filterType === type ? '#2563eb' : 'transparent',
-                color: filterType === type ? '#ffffff' : '#64748b',
-                boxShadow: filterType === type ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
+                backgroundColor: filterType === type ? 'var(--primary)' : 'transparent',
+                color: filterType === type ? '#ffffff' : 'var(--text-secondary)',
+                boxShadow: filterType === type ? '0 4px 12px var(--primary-glow)' : 'none',
                 transition: 'all 0.2s ease',
                 border: 'none',
                 fontWeight: '700',
@@ -388,48 +401,93 @@ export default function Recouvrement() {
 
         {/* Status Dropdown */}
         <div className="search-input-wrapper" style={{ width: '200px', flexShrink: 0 }}>
-          <Search size={18} className="search-icon" style={{ color: '#94a3b8' }} />
+          <Search size={18} className="search-icon" style={{ color: 'var(--text-secondary)' }} />
           <select
             className="select-category-catalog"
-            style={{ paddingLeft: '42px', width: '100%' }}
+            style={{ paddingLeft: '42px', width: '100%', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', height: '40px', borderRadius: '12px', outline: 'none' }}
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
-            <option value="all">Tous les statuts</option>
-            <option value="recouvré">Encaissé</option>
-            <option value="déposé">Déposé</option>
-            <option value="impayé">Impayé</option>
-            <option value="en_attente">En attente</option>
+            <option value="all" style={{ backgroundColor: 'var(--bg-card)' }}>Tous les statuts</option>
+            <option value="recouvré" style={{ backgroundColor: 'var(--bg-card)' }}>Encaissé</option>
+            <option value="déposé" style={{ backgroundColor: 'var(--bg-card)' }}>Déposé</option>
+            <option value="impayé" style={{ backgroundColor: 'var(--bg-card)' }}>Impayé</option>
+            <option value="en_attente" style={{ backgroundColor: 'var(--bg-card)' }}>En attente</option>
           </select>
+        </div>
+
+        {/* Date filters */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)' }}>DU</span>
+          <input
+            type="date"
+            onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
+            style={{ 
+              height: '40px', 
+              borderRadius: '12px', 
+              fontSize: '13px', 
+              fontWeight: '600',
+              padding: '0 12px', 
+              border: '1px solid var(--border-color)', 
+              backgroundColor: 'var(--bg-main)', 
+              color: 'var(--text-primary)', 
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)' }}>AU</span>
+          <input
+            type="date"
+            onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
+            style={{ 
+              height: '40px', 
+              borderRadius: '12px', 
+              fontSize: '13px', 
+              fontWeight: '600',
+              padding: '0 12px', 
+              border: '1px solid var(--border-color)', 
+              backgroundColor: 'var(--bg-main)', 
+              color: 'var(--text-primary)', 
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
         </div>
 
         {/* Reset */}
         <button
           onClick={handleResetFilters}
-          className="btn btn-white"
+          className="btn"
           title="Réinitialiser les filtres"
-          style={{ padding: '12px', borderRadius: '12px' }}
+          style={{ padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', cursor: 'pointer', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <RotateCcw size={16} />
         </button>
       </div>
 
       {/* Cheques list table */}
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0,0,0,0.02)' }}>
+      <div className="glass-card" style={{ padding: '24px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '24px' }}>
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>Chargement des données...</div>
         ) : (
           <div className="table-container">
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>N° / BANQUE</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>REÇU LE</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>ÉCHÉANCE</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>TIERS / RÉF.</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>STATUT</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>MONTANT</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'right', padding: '16px 12px' }}>ACTIONS</th>
+                <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>N° / BANQUE</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>REÇU LE</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>ÉCHÉANCE</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>TIERS / RÉF.</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>STATUT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>MONTANT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'right', padding: '16px 12px' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
@@ -438,31 +496,31 @@ export default function Recouvrement() {
                   const isOverdue = chq.status === 'déposé' && new Date(chq.due_date) < new Date();
 
                   // Badges status color mapping
-                  let statusBg = '#fee2e2';
-                  let statusColor = '#991b1b';
+                  let statusBg = 'rgba(239, 68, 68, 0.15)';
+                  let statusColor = '#f87171';
                   let statusLabel = 'IMPAYÉ';
 
                   if (chq.status === 'recouvré') {
-                    statusBg = '#d1fae5';
-                    statusColor = '#065f46';
+                    statusBg = 'rgba(16, 185, 129, 0.15)';
+                    statusColor = '#34d399';
                     statusLabel = 'ENCAISSÉ';
                   } else if (chq.status === 'en_attente') {
-                    statusBg = '#fef3c7';
-                    statusColor = '#92400e';
+                    statusBg = 'rgba(245, 158, 11, 0.15)';
+                    statusColor = '#fbbf24';
                     statusLabel = 'EN ATTENTE';
                   } else if (chq.status === 'déposé') {
-                    statusBg = '#e0f2fe';
-                    statusColor = '#0369a1';
+                    statusBg = 'rgba(59, 130, 246, 0.15)';
+                    statusColor = '#60a5fa';
                     statusLabel = 'DÉPOSÉ';
                   }
 
                   return (
-                    <tr key={chq.id} style={{ borderBottom: '1px solid #f8fafc', transition: 'background-color 0.2s' }}>
+                    <tr key={chq.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background-color 0.2s' }}>
                       <td style={{ padding: '16px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{ 
-                            backgroundColor: isClient ? '#d1fae5' : '#fee2e2', 
-                            color: isClient ? '#10b981' : '#ef4444', 
+                            backgroundColor: isClient ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)', 
+                            color: isClient ? '#34d399' : '#f87171', 
                             borderRadius: '50%', 
                             width: '28px', 
                             height: '28px', 
@@ -473,20 +531,20 @@ export default function Recouvrement() {
                             {isClient ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
                           </div>
                           <div>
-                            <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '13px' }}>{chq.number || 'N/A'}</div>
-                            <div style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>{chq.bank || 'N/A'}</div>
+                            <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '13px' }}>{chq.number || 'N/A'}</div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>{chq.bank || 'N/A'}</div>
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: '16px 12px', color: '#64748b', fontSize: '13px', fontWeight: '500' }}>
+                      <td style={{ padding: '16px 12px', color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>
                         {chq.received_date || 'N/A'}
                       </td>
-                      <td style={{ padding: '16px 12px', color: isOverdue ? '#dc2626' : '#1f2937', fontSize: '13px', fontWeight: '700' }}>
+                      <td style={{ padding: '16px 12px', color: isOverdue ? '#ef4444' : 'var(--text-primary)', fontSize: '13px', fontWeight: '700' }}>
                         {chq.due_date || 'N/A'}
                       </td>
                       <td style={{ padding: '16px 12px' }}>
-                        <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '13px' }}>{chq.partner_name || 'N/A'}</div>
-                        <div style={{ color: '#2563eb', fontSize: '11px', fontWeight: '700', marginTop: '2px', cursor: 'pointer' }}>{chq.reference || 'N/A'}</div>
+                        <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '13px' }}>{chq.partner_name || 'N/A'}</div>
+                        <div style={{ color: '#60a5fa', fontSize: '11px', fontWeight: '700', marginTop: '2px', cursor: 'pointer' }}>{chq.reference || 'N/A'}</div>
                       </td>
                       <td style={{ padding: '16px 12px' }}>
                         <span style={{ 
@@ -502,7 +560,7 @@ export default function Recouvrement() {
                           {statusLabel}
                         </span>
                       </td>
-                      <td style={{ padding: '16px 12px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
+                      <td style={{ padding: '16px 12px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
                         {formatCurrency(chq.amount)}
                       </td>
                       <td style={{ padding: '16px 12px', textAlign: 'right' }}>
@@ -515,9 +573,9 @@ export default function Recouvrement() {
                               fontSize: '11px',
                               fontWeight: '700',
                               borderRadius: '6px',
-                              backgroundColor: chq.status === 'déposé' ? '#f1f5f9' : '#eff6ff',
-                              color: chq.status === 'déposé' ? '#94a3b8' : '#2563eb',
-                              border: '1px solid ' + (chq.status === 'déposé' ? '#e2e8f0' : '#bfdbfe'),
+                              backgroundColor: chq.status === 'déposé' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(37, 99, 235, 0.12)',
+                              color: chq.status === 'déposé' ? 'rgba(255, 255, 255, 0.25)' : '#60a5fa',
+                              border: '1px solid ' + (chq.status === 'déposé' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(37, 99, 235, 0.3)'),
                               cursor: chq.status === 'déposé' ? 'not-allowed' : 'pointer',
                               whiteSpace: 'nowrap',
                               transition: 'all 0.2s',
@@ -539,9 +597,9 @@ export default function Recouvrement() {
                               fontSize: '11px',
                               fontWeight: '700',
                               borderRadius: '6px',
-                              backgroundColor: chq.status === 'recouvré' ? '#f1f5f9' : '#ecfdf5',
-                              color: chq.status === 'recouvré' ? '#94a3b8' : '#059669',
-                              border: '1px solid ' + (chq.status === 'recouvré' ? '#e2e8f0' : '#a7f3d0'),
+                              backgroundColor: chq.status === 'recouvré' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(16, 185, 129, 0.12)',
+                              color: chq.status === 'recouvré' ? 'rgba(255, 255, 255, 0.25)' : '#34d399',
+                              border: '1px solid ' + (chq.status === 'recouvré' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(16, 185, 129, 0.3)'),
                               cursor: chq.status === 'recouvré' ? 'not-allowed' : 'pointer',
                               whiteSpace: 'nowrap',
                               transition: 'all 0.2s',
@@ -563,9 +621,9 @@ export default function Recouvrement() {
                               fontSize: '11px',
                               fontWeight: '700',
                               borderRadius: '6px',
-                              backgroundColor: chq.status === 'impayé' ? '#f1f5f9' : '#fef2f2',
-                              color: chq.status === 'impayé' ? '#94a3b8' : '#dc2626',
-                              border: '1px solid ' + (chq.status === 'impayé' ? '#e2e8f0' : '#fca5a5'),
+                              backgroundColor: chq.status === 'impayé' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(239, 68, 68, 0.12)',
+                              color: chq.status === 'impayé' ? 'rgba(255, 255, 255, 0.25)' : '#f87171',
+                              border: '1px solid ' + (chq.status === 'impayé' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.3)'),
                               cursor: chq.status === 'impayé' ? 'not-allowed' : 'pointer',
                               whiteSpace: 'nowrap',
                               transition: 'all 0.2s',
@@ -632,11 +690,11 @@ export default function Recouvrement() {
             <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Modifier le Statut</h3>
             
             <form onSubmit={handleSaveStatus}>
-              <div style={{ padding: '16px', backgroundColor: '#f1f5f9', borderRadius: '16px', marginBottom: '20px', border: '1px solid #e2e8f0', color: '#0f172a' }}>
+              <div style={{ padding: '16px', backgroundColor: 'var(--bg-main)', borderRadius: '16px', marginBottom: '20px', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
                 <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Détails du Chèque</div>
-                <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700' }}>N°: {editingCheque.number || 'N/A'} ({editingCheque.bank ? editingCheque.bank.toUpperCase() : '-'})</div>
-                <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700', marginTop: '4px' }}>Tiers: {editingCheque.partner_name || 'N/A'}</div>
-                <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700', marginTop: '4px' }}>Montant: {formatCurrency(editingCheque.amount)}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>N°: {editingCheque.number || 'N/A'} ({editingCheque.bank ? editingCheque.bank.toUpperCase() : '-'})</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700', marginTop: '4px' }}>Tiers: {editingCheque.partner_name || 'N/A'}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700', marginTop: '4px' }}>Montant: {formatCurrency(editingCheque.amount)}</div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '24px' }}>
@@ -666,7 +724,7 @@ export default function Recouvrement() {
         <div className="modal-overlay">
           <div className="modal-content" style={{ color: 'var(--text-primary)', width: '450px' }}>
             <button className="modal-close" onClick={() => { setShowHistoryModal(false); setHistoryCheque(null); }}>
-              <X size={20} />
+               <X size={20} />
             </button>
             <h3 className="top-bar-title" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Clock size={20} style={{ color: '#2563eb' }} />
@@ -675,18 +733,18 @@ export default function Recouvrement() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Reference invoice */}
-              <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '16px', border: '1px solid #bfdbfe' }}>
-                <span style={{ fontSize: '10px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Document / Invoice Lié</span>
-                <div style={{ fontSize: '18px', fontWeight: '800', color: '#1e3a8a', marginTop: '4px' }}>
+              <div style={{ padding: '16px', backgroundColor: 'rgba(37, 99, 235, 0.15)', borderRadius: '16px', border: '1px solid rgba(37, 99, 235, 0.3)' }}>
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Document / Invoice Lié</span>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>
                   {historyCheque.reference || 'N/A'}
                 </div>
               </div>
 
               {/* Date details */}
-              <div className="glass-card" style={{ backgroundColor: '#ffffff', padding: '18px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="glass-card" style={{ padding: '18px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
                   <span style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Date du Règlement (Échéance)</span>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#334155', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Calendar size={14} style={{ color: '#64748b' }} />
                     {historyCheque.due_date || 'N/A'}
                   </div>
@@ -694,7 +752,7 @@ export default function Recouvrement() {
 
                 <div>
                   <span style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Date de Réception</span>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#334155', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Calendar size={14} style={{ color: '#64748b' }} />
                     {historyCheque.received_date || 'N/A'}
                   </div>
@@ -702,30 +760,30 @@ export default function Recouvrement() {
               </div>
 
               {/* Tiers and details */}
-              <div className="glass-card" style={{ backgroundColor: '#ffffff', padding: '18px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div className="glass-card" style={{ padding: '18px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#64748b', fontWeight: '600' }}>Tiers / Partenaire :</span>
-                  <span style={{ fontWeight: '700', color: '#334155' }}>{historyCheque.partner_name || 'N/A'}</span>
+                  <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{historyCheque.partner_name || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#64748b', fontWeight: '600' }}>N° du Chèque :</span>
-                  <span style={{ fontWeight: '700', color: '#334155' }}>{historyCheque.number || 'N/A'}</span>
+                  <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{historyCheque.number || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#64748b', fontWeight: '600' }}>Banque émettrice :</span>
-                  <span style={{ fontWeight: '700', color: '#334155' }}>{historyCheque.bank ? historyCheque.bank.toUpperCase() : 'N/A'}</span>
+                  <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{historyCheque.bank ? historyCheque.bank.toUpperCase() : 'N/A'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid #f1f5f9', paddingTop: '10px', marginTop: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '4px' }}>
                   <span style={{ color: '#64748b', fontWeight: '700' }}>Montant réglé :</span>
-                  <span style={{ fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>{formatCurrency(historyCheque.amount)}</span>
+                  <span style={{ fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>{formatCurrency(historyCheque.amount)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#64748b', fontWeight: '700' }}>Statut :</span>
                   <span style={{
                     fontSize: '11px',
                     fontWeight: '800',
-                    color: historyCheque.status === 'recouvré' ? '#065f46' : historyCheque.status === 'en_attente' ? '#92400e' : '#991b1b',
-                    backgroundColor: historyCheque.status === 'recouvré' ? '#d1fae5' : historyCheque.status === 'en_attente' ? '#fef3c7' : '#fee2e2',
+                    color: historyCheque.status === 'recouvré' ? '#34d399' : historyCheque.status === 'en_attente' ? '#fbbf24' : '#f87171',
+                    backgroundColor: historyCheque.status === 'recouvré' ? 'rgba(16, 185, 129, 0.15)' : historyCheque.status === 'en_attente' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                     padding: '2px 8px',
                     borderRadius: '6px',
                     textTransform: 'uppercase'

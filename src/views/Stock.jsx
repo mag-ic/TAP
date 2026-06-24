@@ -371,7 +371,7 @@ export default function Stock() {
           Chargement du catalogue...
         </div>
       ) : filteredItems.length === 0 ? (
-        <div style={{ padding: '80px 0', textAlign: 'center', color: '#64748b', fontSize: '16px', fontWeight: '500', backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
+        <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '16px', fontWeight: '500', backgroundColor: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
           Aucun produit ne correspond à votre recherche.
         </div>
       ) : (
@@ -419,14 +419,15 @@ export default function Stock() {
                     <div className="stock-pill-catalog">
                       <span className="stock-pill-label">STOCK NEUF</span>
                       <span className="stock-pill-value" style={{ 
-                        border: '1px solid #e2e8f0', 
+                        border: '1px solid rgba(56, 189, 248, 0.25)', 
                         borderRadius: '8px', 
                         padding: '2px 10px', 
                         minWidth: '36px', 
                         textAlign: 'center', 
-                        backgroundColor: '#ffffff',
+                        backgroundColor: '#111827',
+                        color: '#38bdf8',
                         fontSize: '11px',
-                        fontWeight: '700'
+                        fontWeight: '800'
                       }}>{item.stock}</span>
                     </div>
 
@@ -435,14 +436,15 @@ export default function Stock() {
                         <AlertTriangle size={10} style={{ strokeWidth: 3 }} /> A DÉCLASSÉ
                       </span>
                       <span className="declassed-pill-value" style={{ 
-                        border: '1px solid #fee2e2', 
+                        border: '1px solid rgba(248, 113, 113, 0.25)', 
                         borderRadius: '8px', 
                         padding: '2px 10px', 
                         minWidth: '36px', 
                         textAlign: 'center', 
-                        backgroundColor: '#ffffff',
+                        backgroundColor: '#111827',
+                        color: '#f87171',
                         fontSize: '11px',
-                        fontWeight: '700'
+                        fontWeight: '800'
                       }}>{item.declassedStock || 0}</span>
                     </div>
                   </div>

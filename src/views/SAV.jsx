@@ -197,23 +197,23 @@ export default function SAV() {
   };
 
   return (
-    <div style={{ color: '#1f2937' }}>
+    <div style={{ color: 'var(--text-primary)' }}>
       {/* Header matching image */}
       <div className="catalog-header" style={{ marginBottom: '28px' }}>
         <div className="catalog-title-wrapper">
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '28px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-            <div style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '12px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '12px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Pencil size={22} style={{ strokeWidth: 2.5 }} />
             </div>
             Service Après-Vente
           </h1>
-          <p className="catalog-subtitle" style={{ fontSize: '14px', color: '#64748b', fontWeight: '500', marginTop: '4px' }}>
+          <p className="catalog-subtitle" style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '500', marginTop: '4px' }}>
             Suivez les retours, réparations et garanties clients.
           </p>
         </div>
         
         <div className="catalog-header-actions" style={{ alignItems: 'center' }}>
-          <button className="btn btn-secondary" onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#ffffff', color: '#334155', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>
+          <button className="btn btn-secondary" onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>
             <Download size={16} />
             <span>CSV</span>
           </button>
@@ -221,8 +221,8 @@ export default function SAV() {
       </div>
 
       {/* New Ticket Form Card */}
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0,0,0,0.02)', marginBottom: '28px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: '0 0 20px 0' }}>
+      <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)', marginBottom: '28px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: '0 0 20px 0' }}>
           Nouveau Dossier SAV
         </h3>
         
@@ -230,58 +230,60 @@ export default function SAV() {
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 3fr 1fr', gap: '16px', alignItems: 'end' }}>
             {/* Date */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Date</label>
+              <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Date</label>
               <input
                 type="date"
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
                 onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
-                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: '#ffffff', color: '#334155', height: '40px', boxSizing: 'border-box', cursor: 'pointer' }}
+                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box', cursor: 'pointer' }}
               />
             </div>
 
             {/* Client */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Client</label>
+              <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Client</label>
               <select
                 value={selectedClient}
                 onChange={(e) => setSelectedClient(e.target.value)}
                 required
-                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: '#f8fafc', height: '40px', boxSizing: 'border-box' }}
+                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box' }}
               >
-                <option value="">Choisir...</option>
+                <option value="" style={{ backgroundColor: 'var(--bg-card)' }}>Choisir...</option>
                 {partners.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id} style={{ backgroundColor: 'var(--bg-card)' }}>{p.name}</option>
                 ))}
               </select>
             </div>
 
             {/* Product */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Produit</label>
+              <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Produit</label>
               <select
                 value={selectedProduct}
                 onChange={(e) => setSelectedProduct(e.target.value)}
                 required
-                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: '#f8fafc', height: '40px', boxSizing: 'border-box' }}
+                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box' }}
               >
-                <option value="">Choisir...</option>
+                <option value="" style={{ backgroundColor: 'var(--bg-card)' }}>Choisir...</option>
                 {products.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id} style={{ backgroundColor: 'var(--bg-card)' }}>
+                    {p.name} ({p.sku}) - Stock: {p.stock} (Neuf) / {p.declassedStock || 0} (Déclassé)
+                  </option>
                 ))}
               </select>
             </div>
 
             {/* Panne (Issue) */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Panne</label>
+              <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Panne</label>
               <input
                 type="text"
                 placeholder="..."
                 value={panneText}
                 onChange={(e) => setPanneText(e.target.value)}
                 required
-                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: '#f8fafc', height: '40px', boxSizing: 'border-box' }}
+                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box' }}
               />
             </div>
 
@@ -289,7 +291,7 @@ export default function SAV() {
             <button
               type="submit"
               style={{
-                backgroundColor: '#dc2626',
+                backgroundColor: '#ef4444',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '30px',
@@ -314,47 +316,47 @@ export default function SAV() {
       </div>
 
       {/* Tickets List Table Card */}
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0,0,0,0.02)' }}>
+      <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)' }}>
         {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>Chargement des données...</div>
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: '600' }}>Chargement des données...</div>
         ) : (
           <div className="table-container">
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>N° DOSSIER</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>CLIENT</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>PRODUIT</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>STATUT</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>FRAIS</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'right', padding: '16px 12px' }}>ACTIONS</th>
+                <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>N° DOSSIER</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>CLIENT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>PRODUIT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>STATUT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>FRAIS</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'right', padding: '16px 12px' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
                 {tickets.map((t) => {
-                  let statusBg = '#f1f5f9';
-                  let statusColor = '#475569';
+                  let statusBg = 'rgba(255, 255, 255, 0.08)';
+                  let statusColor = 'var(--text-secondary)';
                   let statusLabel = 'CLÔTURÉ';
 
                   if (t.status === 'en_cours') {
-                    statusBg = '#f3e8ff';
-                    statusColor = '#6b21a8';
+                    statusBg = 'rgba(168, 85, 247, 0.15)';
+                    statusColor = '#c084fc';
                     statusLabel = 'ÉCHANGE';
                   } else if (t.status === 'ouvert') {
-                    statusBg = '#fef3c7';
-                    statusColor = '#b45309';
+                    statusBg = 'rgba(245, 158, 11, 0.15)';
+                    statusColor = '#fbbf24';
                     statusLabel = 'DIAGNOSTIC';
                   }
 
                   return (
-                    <tr key={t.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                      <td style={{ padding: '16px 12px', fontWeight: '700', color: '#1f2937', fontSize: '14px' }}>
+                    <tr key={t.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '16px 12px', fontWeight: '700', color: 'var(--text-primary)', fontSize: '14px' }}>
                         {t.ticket_number}
                       </td>
-                      <td style={{ padding: '16px 12px', fontWeight: '700', color: '#1f2937', fontSize: '14px' }}>
+                      <td style={{ padding: '16px 12px', fontWeight: '700', color: 'var(--text-primary)', fontSize: '14px' }}>
                         {t.client_name}
                       </td>
-                      <td style={{ padding: '16px 12px', fontWeight: '700', color: '#1f2937', fontSize: '14px' }}>
+                      <td style={{ padding: '16px 12px', fontWeight: '700', color: 'var(--text-primary)', fontSize: '14px' }}>
                         {t.product_name}
                       </td>
                       <td style={{ padding: '16px 12px' }}>
@@ -371,13 +373,13 @@ export default function SAV() {
                           {statusLabel}
                         </span>
                       </td>
-                      <td style={{ padding: '16px 12px', fontWeight: '800', color: '#dc2626', fontSize: '15px' }}>
+                      <td style={{ padding: '16px 12px', fontWeight: '800', color: '#ef4444', fontSize: '15px' }}>
                         {formatFrais(t.cost)}
                       </td>
                       <td style={{ padding: '16px 12px', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '16px', justifyContent: 'flex-end' }}>
                           <button
-                            style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: '#94a3b8' }}
+                            style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}
                             onClick={() => alert(`Résumé du dossier:\nN°: ${t.ticket_number}\nClient: ${t.client_name}\nPanne: ${t.description || 'N/A'}\nFrais: ${formatFrais(t.cost)}\nSolution: ${t.solution || 'N/A'}`)}
                             title="Aperçu rapide"
                           >
@@ -388,8 +390,8 @@ export default function SAV() {
                             onClick={() => handleOpenDetails(t)}
                             style={{
                               border: 'none',
-                              backgroundColor: '#eff6ff',
-                              color: '#2563eb',
+                              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                              color: '#60a5fa',
                               borderRadius: '30px',
                               padding: '6px 16px',
                               fontWeight: '800',
@@ -404,7 +406,7 @@ export default function SAV() {
 
                           <button
                             onClick={(e) => handleDeleteTicket(t.id, e)}
-                            style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: '#cbd5e1' }}
+                            style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}
                             title="Supprimer"
                           >
                             <Trash2 size={16} />
@@ -416,7 +418,7 @@ export default function SAV() {
                 })}
                 {tickets.length === 0 && (
                   <tr>
-                    <td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>
+                    <td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: '600' }}>
                       Aucun dossier SAV enregistré.
                     </td>
                   </tr>
@@ -429,63 +431,63 @@ export default function SAV() {
 
       {/* Details / Edit Modal */}
       {showDetailsModal && selectedTicket && (
-        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(15, 23, 42, 0.4)', zIndex: 1000 }}>
-          <div className="modal-content" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '28px', width: '450px', border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)', zIndex: 1000 }}>
+          <div className="modal-content" style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '28px', width: '450px', border: '1px solid var(--border-color)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Dossier {selectedTicket.ticket_number}</h3>
-              <button style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: '#94a3b8' }} onClick={() => setShowDetailsModal(false)}>
+              <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>Dossier {selectedTicket.ticket_number}</h3>
+              <button style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }} onClick={() => setShowDetailsModal(false)}>
                 <X size={20} />
               </button>
             </div>
             
             <form onSubmit={handleSaveEdit}>
-              <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '16px', marginBottom: '20px', border: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Informations</div>
-                <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700' }}>Client: {selectedTicket.client_name}</div>
-                <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700', marginTop: '4px' }}>Produit: {selectedTicket.product_name}</div>
-                <div style={{ fontSize: '13px', color: '#334155', fontWeight: '700', marginTop: '4px' }}>Panne: {selectedTicket.description}</div>
+              <div style={{ padding: '16px', backgroundColor: 'var(--bg-main)', borderRadius: '16px', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '6px' }}>Informations</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>Client: {selectedTicket.client_name}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700', marginTop: '4px' }}>Produit: {selectedTicket.product_name}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700', marginTop: '4px' }}>Panne: {selectedTicket.description}</div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: '700', fontSize: '11px', color: '#475569', marginBottom: '6px', display: 'block' }}>Statut</label>
+                  <label className="form-label" style={{ fontWeight: '700', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Statut</label>
                   <select 
                     className="form-input" 
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600' }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}
                   >
-                    <option value="ouvert">Diagnostic</option>
-                    <option value="en_cours">Échange</option>
-                    <option value="résolu">Clôturé</option>
+                    <option value="ouvert" style={{ backgroundColor: 'var(--bg-card)' }}>Diagnostic</option>
+                    <option value="en_cours" style={{ backgroundColor: 'var(--bg-card)' }}>Échange</option>
+                    <option value="résolu" style={{ backgroundColor: 'var(--bg-card)' }}>Clôturé</option>
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: '700', fontSize: '11px', color: '#475569', marginBottom: '6px', display: 'block' }}>Frais intervention (DH)</label>
+                  <label className="form-label" style={{ fontWeight: '700', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Frais intervention (DH)</label>
                   <input 
                     type="number"
                     value={editCost}
                     onChange={(e) => setEditCost(e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600' }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}
                   />
                 </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label" style={{ fontWeight: '700', fontSize: '11px', color: '#475569', marginBottom: '6px', display: 'block' }}>Solution Apportée</label>
+                <label className="form-label" style={{ fontWeight: '700', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Solution Apportée</label>
                 <input 
                   type="text"
                   placeholder="Solution..."
                   value={editSolution}
                   onChange={(e) => setEditSolution(e.target.value)}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', fontWeight: '600' }}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}
                 />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowDetailsModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: '1px solid #e2e8f0', backgroundColor: '#ffffff', cursor: 'pointer' }}>Annuler</button>
-                <button type="submit" className="btn btn-blue-action" style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: 'none', backgroundColor: '#2563eb', color: '#ffffff', cursor: 'pointer' }}>Enregistrer</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowDetailsModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', cursor: 'pointer' }}>Annuler</button>
+                <button type="submit" className="btn btn-blue-action" style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: 'none', backgroundColor: 'var(--primary)', color: '#ffffff', cursor: 'pointer' }}>Enregistrer</button>
               </div>
             </form>
           </div>

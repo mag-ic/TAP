@@ -941,8 +941,8 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
             {/* Actif Cards list */}
             <div style={{ 
-              backgroundColor: '#f8fafc', 
-              border: '1px solid #e2e8f0', 
+              backgroundColor: 'var(--bg-card)', 
+              border: '1px solid var(--border-color)', 
               borderTop: 'none', 
               borderRadius: '0 0 24px 24px', 
               padding: '24px', 
@@ -957,17 +957,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>3111</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Stocks de marchandises</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>Stocks de marchandises</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.stockMarchandises)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.stockMarchandises)}</div>
                 </div>
 
                 {/* Clients */}
@@ -975,17 +975,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>3421</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Clients et comptes rattachés</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>Clients et comptes rattachés</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.clientsReste)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.clientsReste)}</div>
                 </div>
 
                 {/* Fournisseurs debiteurs (avances payees) */}
@@ -993,17 +993,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>3411</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Fournisseurs - Avances versées</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>Fournisseurs - Avances versées</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.advancesSum)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.advancesSum)}</div>
                 </div>
 
                 {/* TVA Recouperable */}
@@ -1011,17 +1011,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>3455</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>État - TVA récupérable</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>État - TVA récupérable</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.tvaRecup)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.tvaRecup)}</div>
                 </div>
 
                 {/* Banque */}
@@ -1029,17 +1029,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>5141</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Banques</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>Banques</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.bankBalance)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.bankBalance)}</div>
                 </div>
 
                 {/* Caisses */}
@@ -1047,24 +1047,24 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#10b981', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>5161</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Caisses</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>Caisses</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.caisses)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.caisses)}</div>
                 </div>
               </div>
 
               {/* Total Actif Footer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '24px', marginTop: 'auto' }}>
                 <span style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', letterSpacing: '1px' }}>TOTAL ACTIF</span>
-                <span style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{formatCurrency(compta.totalActif)}</span>
+                <span style={{ fontSize: '24px', fontWeight: '900', color: 'var(--text-primary)' }}>{formatCurrency(compta.totalActif)}</span>
               </div>
             </div>
           </div>
@@ -1090,8 +1090,8 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
             {/* Passif Cards list */}
             <div style={{ 
-              backgroundColor: '#f8fafc', 
-              border: '1px solid #e2e8f0', 
+              backgroundColor: 'var(--bg-card)', 
+              border: '1px solid var(--border-color)', 
               borderTop: 'none', 
               borderRadius: '0 0 24px 24px', 
               padding: '24px', 
@@ -1106,17 +1106,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>4411</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Fournisseurs et cptes rattachés</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>Fournisseurs et cptes rattachés</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.suppliersReste)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.suppliersReste)}</div>
                 </div>
 
                 {/* TVA facturée */}
@@ -1124,17 +1124,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>4455</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>État - TVA facturée</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>État - TVA facturée</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.tvaFact)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.tvaFact)}</div>
                 </div>
 
                 {/* Associes */}
@@ -1142,17 +1142,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>4463</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Associés - Comptes courants</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>Associés - Comptes courants</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.associésComptes)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.associésComptes)}</div>
                 </div>
 
                 {/* Autres creanciers */}
@@ -1160,17 +1160,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>4480</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Autres créanciers</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>Autres créanciers</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.autresCreanciers)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.autresCreanciers)}</div>
                 </div>
 
                 {/* Banque Solde crediteur */}
@@ -1178,24 +1178,24 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: 'var(--bg-main)', 
                   borderRadius: '16px', 
                   padding: '20px 24px', 
-                  border: '1px solid #f1f5f9',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01)'
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
                 }}>
                   <div>
                     <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.5px' }}>5541</div>
-                    <div style={{ color: '#1f2937', fontWeight: '700', fontSize: '14px' }}>Banques (Solde créditeur)</div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>Banques (Solde créditeur)</div>
                   </div>
-                  <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.banqueSoldeCrediteur)}</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '16px' }}>{formatCurrency(compta.banqueSoldeCrediteur)}</div>
                 </div>
               </div>
 
               {/* Total Passif Footer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '24px', marginTop: 'auto' }}>
                 <span style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', letterSpacing: '1px' }}>TOTAL PASSIF</span>
-                <span style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{formatCurrency(compta.totalPassif)}</span>
+                <span style={{ fontSize: '24px', fontWeight: '900', color: 'var(--text-primary)' }}>{formatCurrency(compta.totalPassif)}</span>
               </div>
             </div>
           </div>
@@ -1221,39 +1221,39 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
             }}>
               CHARGES (CLASSE 6)
             </div>
-            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 20px 20px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderTop: 'none', borderRadius: '0 0 20px 20px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               
               {/* Achats marchandises */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '12px', padding: '16px', border: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border-color)' }}>
                 <div>
                   <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '10px' }}>6111</div>
-                  <div style={{ color: '#334155', fontWeight: '700', fontSize: '13px' }}>Achats de marchandises</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '13px' }}>Achats de marchandises</div>
                 </div>
-                <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(compta.totalPassif * 0.4)}</div>
+                <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(compta.totalPassif * 0.4)}</div>
               </div>
 
               {/* Transports */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '12px', padding: '16px', border: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border-color)' }}>
                 <div>
                   <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '10px' }}>6141</div>
-                  <div style={{ color: '#334155', fontWeight: '700', fontSize: '13px' }}>Transports</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '13px' }}>Transports</div>
                 </div>
-                <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(compta.advancesSum * 0.5)}</div>
+                <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(compta.advancesSum * 0.5)}</div>
               </div>
 
               {/* Services bancaires */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '12px', padding: '16px', border: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border-color)' }}>
                 <div>
                   <div style={{ color: '#ef4444', fontWeight: '800', fontSize: '10px' }}>6147</div>
-                  <div style={{ color: '#334155', fontWeight: '700', fontSize: '13px' }}>Services bancaires</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '13px' }}>Services bancaires</div>
                 </div>
-                <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(1500)}</div>
+                <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(1500)}</div>
               </div>
 
               {/* Total Charges Footer */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #cbd5e1', paddingTop: '18px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '18px', marginTop: '12px' }}>
                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>TOTAL CHARGES</span>
-                <span style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a' }}>{formatCurrency(compta.totalPassif * 0.4 + compta.advancesSum * 0.5 + 1500)}</span>
+                <span style={{ fontSize: '20px', fontWeight: '900', color: 'var(--text-primary)' }}>{formatCurrency(compta.totalPassif * 0.4 + compta.advancesSum * 0.5 + 1500)}</span>
               </div>
             </div>
           </div>
@@ -1272,21 +1272,21 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
             }}>
               PRODUITS (CLASSE 7)
             </div>
-            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 20px 20px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderTop: 'none', borderRadius: '0 0 20px 20px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               
               {/* Ventes marchandises */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: '12px', padding: '16px', border: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border-color)' }}>
                 <div>
                   <div style={{ color: '#10b981', fontWeight: '800', fontSize: '10px' }}>7111</div>
-                  <div style={{ color: '#334155', fontWeight: '700', fontSize: '13px' }}>Ventes de marchandises</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '13px' }}>Ventes de marchandises</div>
                 </div>
-                <div style={{ color: '#0f172a', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(compta.totalActif * 0.8)}</div>
+                <div style={{ color: 'var(--text-primary)', fontWeight: '800', fontSize: '15px' }}>{formatCurrency(compta.totalActif * 0.8)}</div>
               </div>
 
               {/* Total Produits Footer */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #cbd5e1', paddingTop: '18px', marginTop: '128px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '18px', marginTop: '128px' }}>
                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>TOTAL PRODUITS</span>
-                <span style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a' }}>{formatCurrency(compta.totalActif * 0.8)}</span>
+                <span style={{ fontSize: '20px', fontWeight: '900', color: 'var(--text-primary)' }}>{formatCurrency(compta.totalActif * 0.8)}</span>
               </div>
             </div>
           </div>
@@ -1296,8 +1296,8 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
       {/* GRAND LIVRE TAB VIEW */}
       {comptaTab === 'grand-livre' && (
-        <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', marginBottom: '20px' }}>Journal Général & Grand Livre</h3>
+        <div className="glass-card" style={{ padding: '24px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '20px' }}>Journal Général & Grand Livre</h3>
           <div className="table-container">
             <table className="custom-table" style={{ width: '100%' }}>
               <thead>

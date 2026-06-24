@@ -203,8 +203,8 @@ export default function Dashboard({ setActiveTab }) {
                         {tx.type}
                       </span>
                     </td>
-                    <td style={{ fontWeight: '600', color: (tx.type === 'vente' || tx.type === 'revenu') ? 'var(--success)' : 'var(--danger)' }}>
-                      {(tx.type === 'vente' || tx.type === 'revenu') ? '+' : '-'} {formatCurrency(Math.abs(tx.amount))}
+                    <td style={{ fontWeight: '600', color: (tx.type === 'vente' || tx.type === 'revenu' || tx.type === 'bl') ? 'var(--success)' : 'var(--danger)' }}>
+                      {(tx.type === 'vente' || tx.type === 'revenu' || tx.type === 'bl') ? '+' : '-'} {formatCurrency(Math.abs(tx.amount))}
                     </td>
                     <td>
                       <span className={`badge ${tx.status}`}>

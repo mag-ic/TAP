@@ -264,7 +264,7 @@ export default function SpareParts() {
       <div className="catalog-header">
         <div className="catalog-title-wrapper">
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Network size={28} style={{ color: '#2563eb' }} /> Stock Pièces de Rechange
+            <Network size={28} style={{ color: 'var(--primary)' }} /> Stock Pièces de Rechange
           </h1>
           <p className="catalog-subtitle">Gérez vos composants liés aux produits principaux.</p>
         </div>
@@ -382,29 +382,30 @@ export default function SpareParts() {
                     <div className="stock-pill-catalog">
                       <span className="stock-pill-label">STOCK NEUF</span>
                       <span className="stock-pill-value" style={{ 
-                        border: '1px solid #e2e8f0', 
+                        border: '1px solid var(--border-color)', 
                         borderRadius: '8px', 
                         padding: '2px 10px', 
                         minWidth: '36px', 
                         textAlign: 'center', 
-                        backgroundColor: '#ffffff',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--text-primary)',
                         fontSize: '11px',
                         fontWeight: '700'
                       }}>{part.quantity} pcs</span>
                     </div>
 
-                    <div className="stock-pill-catalog" style={{ backgroundColor: '#fcfcfc' }}>
-                      <span className="stock-pill-label" style={{ color: '#94a3b8' }}>ALERTE MIN</span>
+                    <div className="stock-pill-catalog" style={{ backgroundColor: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-color)' }}>
+                      <span className="stock-pill-label" style={{ color: 'var(--text-secondary)' }}>ALERTE MIN</span>
                       <span className="stock-pill-value" style={{ 
-                        border: '1px solid #e2e8f0', 
+                        border: '1px solid var(--border-color)', 
                         borderRadius: '8px', 
                         padding: '2px 10px', 
                         minWidth: '36px', 
                         textAlign: 'center', 
-                        backgroundColor: '#ffffff',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
                         fontSize: '11px',
                         fontWeight: '700',
-                        color: '#64748b'
+                        color: 'var(--text-secondary)'
                       }}>{part.min_quantity} pcs</span>
                     </div>
                   </div>

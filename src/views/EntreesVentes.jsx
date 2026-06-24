@@ -277,24 +277,24 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
     setVentePriceTTC('');
   };
 
-  // Save Vente (Facture Client)
+  // Save Vente (Bon de Livraison)
   const handleSaveVente = async () => {
     if (!venteClient || venteItems.length === 0) return;
 
     const client = clients.find(c => c.id === venteClient || c.name === venteClient);
     const clientName = client ? client.name : venteClient;
 
-    const venteCount = transactions.filter(t => t.type === 'vente').length;
-    const invRef = `INV-26-000${venteCount + 10}`;
+    const salesCount = transactions.filter(t => t.type === 'vente' || t.type === 'bl').length;
+    const blRef = `BL-26-000${salesCount + 10}`;
 
     const totalHT = venteItems.reduce((acc, item) => acc + item.totalHT, 0);
     const totalTTC = totalHT * 1.2;
 
     const newTx = {
-      id: 'inv-gen-' + Date.now(),
-      type: 'vente',
+      id: 'bl-gen-' + Date.now(),
+      type: 'bl',
       amount: totalTTC,
-      description: `Facture ${invRef}`,
+      description: `Bon de Livraison ${blRef}`,
       partner_name: clientName,
       date: venteDate,
       payment_method: venteReglement,
@@ -311,7 +311,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
 
     if (usingMockData) {
       venteItems.forEach(item => {
-        const prod = mockStock.find(s => s.id === item.productId);
+        const prod = mockStock.find(s => s.id === item.id || s.productId === item.id || s.id === item.productId);
         if (prod) {
           if (item.stockType === 'Déclassé') {
             prod.declassedStock = Math.max(0, (prod.declassedStock || 0) - item.quantity);
@@ -321,7 +321,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
         }
       });
       setTransactions([newTx, ...transactions]);
-      alert(`Vente ${invRef} validée avec succès (Mode Démo) !`);
+      alert(`Bon de Livraison ${blRef} validé avec succès (Mode Démo) !`);
     } else {
       const { error } = await supabase.from('transactions').insert([newTx]);
       if (error) {
@@ -342,11 +342,54 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
         }
       }
       fetchData();
-      alert(`Vente ${invRef} enregistrée avec succès !`);
+      alert(`Bon de Livraison ${blRef} enregistré avec succès !`);
     }
 
     setVenteClient('');
     setVenteItems([]);
+  };
+
+  // Convert Bon de Livraison (BL) to Invoice (Facture)
+  const handleConvertToInvoice = async (tx, e) => {
+    if (e) e.stopPropagation();
+    
+    const blRef = getBLReference(tx.description);
+    if (!window.confirm(`Voulez-vous transformer le Bon de Livraison ${blRef} en Facture ?`)) return;
+
+    const venteCount = transactions.filter(t => t.type === 'vente').length;
+    const invRef = `INV-26-000${venteCount + 10}`;
+    const newDescription = `Facture ${invRef} (ex ${blRef})`;
+
+    if (usingMockData) {
+      const updatedTxs = transactions.map(t => {
+        if (t.id === tx.id) {
+          return {
+            ...t,
+            type: 'vente',
+            description: newDescription
+          };
+        }
+        return t;
+      });
+      setTransactions(updatedTxs);
+      alert(`Le BL a été converti en Facture ${invRef} (Mode Démo) !`);
+    } else {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .update({
+            type: 'vente',
+            description: newDescription
+          })
+          .eq('id', tx.id);
+
+        if (error) throw error;
+        await fetchData();
+        alert(`Le BL a été converti en Facture ${invRef} avec succès !`);
+      } catch (err) {
+        alert("Erreur lors de la conversion : " + err.message);
+      }
+    }
   };
 
   const handleExportCSV = () => {
@@ -490,7 +533,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
         return t.type === 'charge' && t.description?.toLowerCase().includes('avance');
       }
     } else {
-      return t.type === 'vente' || t.type === 'revenu';
+      return t.type === 'vente' || t.type === 'revenu' || t.type === 'bl';
     }
   });
 
@@ -541,7 +584,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
 
           {activeSubTab === 'entrees' && (
             /* Sub sub tab switcher for Arrivages (BC) vs Avances */
-            <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
+            <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'inline-flex' }}>
               <button 
                 className={`tab-btn ${subSubTab === 'bc' ? 'active' : ''}`}
                 style={{ 
@@ -550,9 +593,9 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                   letterSpacing: '0.5px',
                   padding: '8px 16px',
                   borderRadius: '10px',
-                  backgroundColor: subSubTab === 'bc' ? '#2563eb' : 'transparent',
-                  color: subSubTab === 'bc' ? '#ffffff' : '#64748b',
-                  boxShadow: subSubTab === 'bc' ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
+                  backgroundColor: subSubTab === 'bc' ? 'var(--primary)' : 'transparent',
+                  color: subSubTab === 'bc' ? '#ffffff' : 'var(--text-secondary)',
+                  boxShadow: subSubTab === 'bc' ? '0 4px 12px rgba(26, 115, 232, 0.2)' : 'none',
                   transition: 'all 0.2s ease',
                   border: 'none',
                   fontWeight: '700',
@@ -570,9 +613,9 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                   letterSpacing: '0.5px',
                   padding: '8px 16px',
                   borderRadius: '10px',
-                  backgroundColor: subSubTab === 'avances' ? '#2563eb' : 'transparent',
-                  color: subSubTab === 'avances' ? '#ffffff' : '#64748b',
-                  boxShadow: subSubTab === 'avances' ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none',
+                  backgroundColor: subSubTab === 'avances' ? 'var(--primary)' : 'transparent',
+                  color: subSubTab === 'avances' ? '#ffffff' : 'var(--text-secondary)',
+                  boxShadow: subSubTab === 'avances' ? '0 4px 12px rgba(26, 115, 232, 0.2)' : 'none',
                   transition: 'all 0.2s ease',
                   border: 'none',
                   fontWeight: '700',
@@ -591,30 +634,30 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       {activeSubTab === 'entrees' && subSubTab === 'bc' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Card: Nouvel Arrivage (BC) */}
-          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '24px' }}>Nouvel Arrivage (BC)</h3>
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '24px' }}>Nouvel Arrivage (BC)</h3>
             
             <form onSubmit={handleAddItemToArrivage}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#94a3b8' }}>DATE RÉCEPTION</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)' }}>DATE RÉCEPTION</span>
                   <input
                     type="date"
                     className="form-input"
                     value={receptionDate}
                     onChange={(e) => setReceptionDate(e.target.value)}
                     onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
-                    style={{ backgroundColor: '#ffffff', color: '#334155', height: '46px', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'pointer' }}
+                    style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#94a3b8' }}>FOURNISSEUR</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)' }}>FOURNISSEUR</span>
                   <select
                     className="select-category-catalog"
                     value={selectedFournisseur}
                     onChange={(e) => setSelectedFournisseur(e.target.value)}
-                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                    style={{ backgroundColor: 'var(--bg-main)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', color: 'var(--text-primary)' }}
                     required
                   >
                     <option value="">Choisir Fournisseur...</option>
@@ -630,8 +673,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     type="button" 
                     onClick={() => alert("Simulateur d'upload activé : Fichier attaché !")}
                     style={{ 
-                      border: '2px dashed #a7f3d0', 
-                      backgroundColor: '#ecfdf5', 
+                      border: '2px dashed rgba(16, 185, 129, 0.3)', 
+                      backgroundColor: 'rgba(16, 185, 129, 0.08)', 
                       color: '#10b981', 
                       borderRadius: '12px', 
                       padding: '12px 24px', 
@@ -651,36 +694,38 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 </div>
               </div>
 
-              <div style={{ backgroundColor: '#eff6ff', borderRadius: '16px', padding: '20px', display: 'grid', gridTemplateColumns: '3fr 1fr 1.5fr auto', gap: '16px', alignItems: 'flex-end', border: '1px solid #dbeafe' }}>
+              <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '16px', padding: '20px', display: 'grid', gridTemplateColumns: '3fr 1fr 1.5fr auto', gap: '16px', alignItems: 'flex-end', border: '1px solid var(--border-color)' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>PRODUIT À STOCKER</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>PRODUIT À STOCKER</span>
                   <select
                     className="select-category-catalog"
                     value={selectedProductId}
                     onChange={(e) => setSelectedProductId(e.target.value)}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', width: '100%' }}
+                    style={{ backgroundColor: 'var(--bg-card)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', color: 'var(--text-primary)' }}
                   >
                     <option value="">Choisir un article...</option>
                     {stockItems.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.sku}) - Stock: {p.stock} (Neuf) / {p.declassedStock || 0} (Déclassé)
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>QUANTITÉ</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>QUANTITÉ</span>
                   <input
                     type="number"
                     min="1"
                     className="form-input"
                     value={itemQuantity}
                     onChange={(e) => setItemQuantity(e.target.value)}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', textAlign: 'center', fontWeight: '700' }}
+                    style={{ backgroundColor: 'var(--bg-card)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center', fontWeight: '700', color: 'var(--text-primary)' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>P.U. TTC (DH)</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>P.U. TTC (DH)</span>
                   <input
                     type="number"
                     step="0.01"
@@ -689,7 +734,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     className="form-input"
                     value={itemUnitPriceTTC}
                     onChange={(e) => setItemUnitPriceTTC(e.target.value)}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', fontWeight: '700' }}
+                    style={{ backgroundColor: 'var(--bg-card)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', fontWeight: '700', color: 'var(--text-primary)' }}
                   />
                 </div>
 
@@ -705,12 +750,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
 
             {/* List of currently added items in this BC */}
             {addedItems.length > 0 && (
-              <div style={{ marginTop: '24px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
-                <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Composants de l'arrivage en cours :</h4>
+              <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                <h4 style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Composants de l'arrivage en cours :</h4>
                 <div className="table-container">
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
-                      <tr style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontWeight: '700' }}>
+                      <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', fontWeight: '700' }}>
                         <th style={{ padding: '10px 8px' }}>SKU</th>
                         <th style={{ padding: '10px 8px' }}>DÉSIGNATION</th>
                         <th style={{ padding: '10px 8px' }}>QUANTITÉ</th>
@@ -721,12 +766,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     </thead>
                     <tbody>
                       {addedItems.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
                           <td style={{ padding: '12px 8px', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
-                          <td style={{ padding: '12px 8px', fontWeight: '700', color: '#0f172a' }}>{item.productName}</td>
+                          <td style={{ padding: '12px 8px', fontWeight: '700', color: 'var(--text-primary)' }}>{item.productName}</td>
                           <td style={{ padding: '12px 8px', fontWeight: '600' }}>{item.quantity}</td>
                           <td style={{ padding: '12px 8px' }}>{formatCurrency(item.unitPriceTTC)}</td>
-                          <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{formatCurrency(item.quantity * item.unitPriceTTC)}</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '700', color: 'var(--text-primary)' }}>{formatCurrency(item.quantity * item.unitPriceTTC)}</td>
                           <td style={{ padding: '12px 8px', textAlign: 'right' }}>
                             <button 
                               type="button" 
@@ -743,9 +788,9 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                   </table>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', backgroundColor: '#f8fafc', padding: '16px 24px', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#475569' }}>
-                    TOTAL DU BON DE COMMANDE : <span style={{ color: '#2563eb', fontSize: '20px', marginLeft: '8px' }}>{formatCurrency(addedItems.reduce((acc, item) => acc + (item.quantity * item.unitPriceTTC), 0))}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', backgroundColor: 'var(--bg-main)', padding: '16px 24px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-secondary)' }}>
+                    TOTAL DU BON DE COMMANDE : <span style={{ color: 'var(--primary)', fontSize: '20px', marginLeft: '8px' }}>{formatCurrency(addedItems.reduce((acc, item) => acc + (item.quantity * item.unitPriceTTC), 0))}</span>
                   </div>
                   <button type="button" className="btn btn-blue-action" onClick={handleSaveArrivage} style={{ padding: '12px 28px', borderRadius: '12px' }}>
                     VALIDER L'ARRIVAGE (BC)
@@ -756,12 +801,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
           </div>
 
           {/* Card: Historique des Arrivages (BC) */}
-          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-              <div style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '6px', borderRadius: '8px' }}>
+              <div style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-secondary)', padding: '6px', borderRadius: '8px' }}>
                 <History size={16} />
               </div>
-              <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Historique des Arrivages (BC)</h3>
+              <h3 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Historique des Arrivages (BC)</h3>
             </div>
 
             {filteredTxs.length === 0 ? (
@@ -773,28 +818,28 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 <table className="custom-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE BC</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>FOURNISSEUR</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TOTAL TTC</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE BC</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>FOURNISSEUR</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TOTAL TTC</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredTxs.map((tx) => (
-                      <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                        <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+                      <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
                           {getBCReference(tx.description)}
                         </td>
-                        <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
+                        <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
                           {tx.date}
                         </td>
                         <td style={{ padding: '20px 16px' }}>
-                          <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                          <span style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase', border: '1px solid var(--border-color)' }}>
                             {tx.partner_name || 'N/A'}
                           </span>
                         </td>
-                        <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
+                        <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
                           {formatCurrency(tx.amount)}
                         </td>
                         <td style={{ padding: '20px 16px', textAlign: 'right' }}>
@@ -835,30 +880,30 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       {activeSubTab === 'entrees' && subSubTab === 'avances' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Card: Nouvelle Avance */}
-          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '24px' }}>Nouvelle Avance Fournisseur</h3>
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '24px' }}>Nouvelle Avance Fournisseur</h3>
             
             <form onSubmit={handleSaveAdvance}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', alignItems: 'flex-end', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#94a3b8' }}>DATE DE PAIEMENT</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)' }}>DATE DE PAIEMENT</span>
                   <input
                     type="date"
                     className="form-input"
                     value={avanceDate}
                     onChange={(e) => setAvanceDate(e.target.value)}
                     onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
-                    style={{ backgroundColor: '#ffffff', color: '#334155', height: '46px', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'pointer' }}
+                    style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#94a3b8' }}>FOURNISSEUR</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)' }}>FOURNISSEUR</span>
                   <select
                     className="select-category-catalog"
                     value={avanceFournisseur}
                     onChange={(e) => setAvanceFournisseur(e.target.value)}
-                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                    style={{ backgroundColor: 'var(--bg-main)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', color: 'var(--text-primary)' }}
                     required
                   >
                     <option value="">Choisir Fournisseur...</option>
@@ -869,7 +914,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#94a3b8' }}>MONTANT DE L'AVANCE (DH)</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)' }}>MONTANT DE L'AVANCE (DH)</span>
                   <input
                     type="number"
                     step="0.01"
@@ -878,18 +923,18 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     className="form-input"
                     value={avanceAmount}
                     onChange={(e) => setAvanceAmount(e.target.value)}
-                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: '700' }}
+                    style={{ backgroundColor: 'var(--bg-main)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', fontWeight: '700', color: 'var(--text-primary)' }}
                     required
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#94a3b8' }}>MODE DE PAIEMENT</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)' }}>MODE DE PAIEMENT</span>
                   <select
                     className="select-category-catalog"
                     value={avanceMethod}
                     onChange={(e) => setAvanceMethod(e.target.value)}
-                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                    style={{ backgroundColor: 'var(--bg-main)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', color: 'var(--text-primary)' }}
                   >
                     <option value="Virement">Virement</option>
                     <option value="Chèque">Chèque</option>
@@ -906,12 +951,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
           </div>
 
           {/* Card: Historique des Avances */}
-          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-              <div style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '6px', borderRadius: '8px' }}>
+              <div style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-secondary)', padding: '6px', borderRadius: '8px' }}>
                 <History size={16} />
               </div>
-              <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Historique des Avances versées</h3>
+              <h3 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Historique des Avances versées</h3>
             </div>
 
             {filteredTxs.length === 0 ? (
@@ -923,37 +968,37 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 <table className="custom-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE AVANCE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>FOURNISSEUR</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT PAYÉ</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MODE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE AVANCE</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>FOURNISSEUR</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>MONTANT PAYÉ</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>MODE</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredTxs.map((tx) => (
-                      <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                        <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+                      <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
                           {tx.description}
                         </td>
-                        <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
+                        <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
                           {tx.date}
                         </td>
                         <td style={{ padding: '20px 16px' }}>
-                          <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                          <span style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase', border: '1px solid var(--border-color)' }}>
                             {tx.partner_name || 'N/A'}
                           </span>
                         </td>
-                        <td style={{ padding: '20px 16px', fontWeight: '800', color: '#ef4444', fontSize: '15px' }}>
+                        <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--danger)', fontSize: '15px' }}>
                           -{formatCurrency(tx.amount)}
                         </td>
-                        <td style={{ padding: '20px 16px', fontWeight: '600', color: '#475569' }}>
+                        <td style={{ padding: '20px 16px', fontWeight: '600', color: 'var(--text-secondary)' }}>
                           {tx.payment_method}
                         </td>
                         <td style={{ padding: '20px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '14px', color: '#cbd5e1' }}>
-                            <button className="action-icon-btn delete" style={{ color: '#ef4444' }} onClick={(e) => handleDeleteClick(tx.id, e)} title="Annuler l'avance">
+                            <button className="action-icon-btn delete" style={{ color: 'var(--danger)' }} onClick={(e) => handleDeleteClick(tx.id, e)} title="Annuler l'avance">
                               <Trash2 size={16} />
                             </button>
                           </div>
@@ -972,19 +1017,19 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       {activeSubTab === 'ventes' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Card: Nouvelle Vente */}
-          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '24px' }}>Nouvelle Vente</h3>
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '24px' }}>Nouvelle Vente</h3>
             
             <form onSubmit={handleAddItemToVente}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
                 {/* Client */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#94a3b8' }}>CLIENT</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)' }}>CLIENT</span>
                   <select
                     className="select-category-catalog"
                     value={venteClient}
                     onChange={(e) => setVenteClient(e.target.value)}
-                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                    style={{ backgroundColor: 'var(--bg-main)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', color: 'var(--text-primary)' }}
                     required
                   >
                     <option value="">Sélectionner Client...</option>
@@ -996,25 +1041,25 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
 
                 {/* Date Document */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#94a3b8' }}>DATE DOCUMENT</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)' }}>DATE DOCUMENT</span>
                   <input
                     type="date"
                     className="form-input"
                     value={venteDate}
                     onChange={(e) => setVenteDate(e.target.value)}
                     onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
-                    style={{ backgroundColor: '#ffffff', color: '#334155', height: '46px', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'pointer' }}
+                    style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}
                   />
                 </div>
 
                 {/* Reglement */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#94a3b8' }}>RÈGLEMENT</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)' }}>RÈGLEMENT</span>
                   <select
                     className="select-category-catalog"
                     value={venteReglement}
                     onChange={(e) => setVenteReglement(e.target.value)}
-                    style={{ backgroundColor: '#f8fafc', height: '46px', border: '1px solid #e2e8f0', borderRadius: '12px', width: '100%' }}
+                    style={{ backgroundColor: 'var(--bg-main)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', color: 'var(--text-primary)' }}
                   >
                     <option value="Espèces">Espèces</option>
                     <option value="Chèque">Chèque</option>
@@ -1026,31 +1071,33 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
               </div>
 
               {/* Blue Items entry row matching image */}
-              <div style={{ backgroundColor: '#eff6ff', borderRadius: '16px', padding: '20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: '16px', alignItems: 'flex-end', border: '1px solid #dbeafe' }}>
+              <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '16px', padding: '20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: '16px', alignItems: 'flex-end', border: '1px solid var(--border-color)' }}>
                 {/* Product */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>PRODUIT</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>PRODUIT</span>
                   <select
                     className="select-category-catalog"
                     value={venteProductId}
                     onChange={(e) => setVenteProductId(e.target.value)}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', width: '100%' }}
+                    style={{ backgroundColor: 'var(--bg-card)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', color: 'var(--text-primary)' }}
                   >
                     <option value="">Choisir...</option>
                     {stockItems.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.sku}) - Stock: {p.stock} (Neuf) / {p.declassedStock || 0} (Déclassé)
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 {/* Stock Type (Neuf vs Declassé) */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>STOCK</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>STOCK</span>
                   <select
                     className="select-category-catalog"
                     value={venteStockType}
                     onChange={(e) => setVenteStockType(e.target.value)}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', width: '100%' }}
+                    style={{ backgroundColor: 'var(--bg-card)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', color: 'var(--text-primary)' }}
                   >
                     <option value="Neuf">Neuf</option>
                     <option value="Déclassé">Déclassé</option>
@@ -1059,20 +1106,20 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
 
                 {/* Quantity */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>QTÉ</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>QTÉ</span>
                   <input
                     type="number"
                     min="1"
                     className="form-input"
                     value={venteQty}
                     onChange={(e) => setVenteQty(e.target.value)}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', textAlign: 'center', fontWeight: '700' }}
+                    style={{ backgroundColor: 'var(--bg-card)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center', fontWeight: '700', color: 'var(--text-primary)' }}
                   />
                 </div>
 
                 {/* Sale Price TTC */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span className="form-label" style={{ color: '#2563eb', fontWeight: '700' }}>PRIX VENTE TTC</span>
+                  <span className="form-label" style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>PRIX VENTE TTC</span>
                   <input
                     type="number"
                     step="0.01"
@@ -1081,7 +1128,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     className="form-input"
                     value={ventePriceTTC}
                     onChange={(e) => setVentePriceTTC(e.target.value)}
-                    style={{ backgroundColor: '#ffffff', height: '46px', border: '1px solid #bfdbfe', borderRadius: '12px', fontWeight: '700' }}
+                    style={{ backgroundColor: 'var(--bg-card)', height: '46px', border: '1px solid var(--border-color)', borderRadius: '12px', fontWeight: '700', color: 'var(--text-primary)' }}
                   />
                 </div>
 
@@ -1097,12 +1144,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
 
             {/* List of currently added items in this sale */}
             {venteItems.length > 0 && (
-              <div style={{ marginTop: '24px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
-                <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Composants de la vente en cours :</h4>
+              <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                <h4 style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Composants de la vente en cours :</h4>
                 <div className="table-container">
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
-                      <tr style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontWeight: '700' }}>
+                      <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', fontWeight: '700' }}>
                         <th style={{ padding: '10px 8px' }}>SKU</th>
                         <th style={{ padding: '10px 8px' }}>DÉSIGNATION</th>
                         <th style={{ padding: '10px 8px' }}>TYPE STOCK</th>
@@ -1114,22 +1161,22 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     </thead>
                     <tbody>
                       {venteItems.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
                           <td style={{ padding: '12px 8px', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
-                          <td style={{ padding: '12px 8px', fontWeight: '700', color: '#0f172a' }}>{item.productName}</td>
+                          <td style={{ padding: '12px 8px', fontWeight: '700', color: 'var(--text-primary)' }}>{item.productName}</td>
                           <td style={{ padding: '12px 8px' }}>
                             <span style={{ 
                               fontSize: '10px', 
                               fontWeight: '700', 
                               padding: '2px 8px', 
                               borderRadius: '4px',
-                              backgroundColor: item.stockType === 'Déclassé' ? '#fdf2f2' : '#f8fafc',
-                              color: item.stockType === 'Déclassé' ? '#ef4444' : '#64748b'
+                              backgroundColor: item.stockType === 'Déclassé' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                              color: item.stockType === 'Déclassé' ? '#f87171' : 'var(--text-secondary)'
                             }}>{item.stockType.toUpperCase()}</span>
                           </td>
                           <td style={{ padding: '12px 8px', fontWeight: '600' }}>{item.quantity}</td>
                           <td style={{ padding: '12px 8px' }}>{formatCurrency(item.priceTTC)}</td>
-                          <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{formatCurrency(item.quantity * item.priceTTC)}</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '700', color: 'var(--text-primary)' }}>{formatCurrency(item.quantity * item.priceTTC)}</td>
                           <td style={{ padding: '12px 8px', textAlign: 'right' }}>
                             <button 
                               type="button" 
@@ -1146,9 +1193,9 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                   </table>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', backgroundColor: '#f8fafc', padding: '16px 24px', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#475569' }}>
-                    TOTAL DU BON DE LIVRAISON : <span style={{ color: '#2563eb', fontSize: '20px', marginLeft: '8px' }}>{formatCurrency(venteItems.reduce((acc, item) => acc + (item.quantity * item.priceTTC), 0))}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', backgroundColor: 'var(--bg-main)', padding: '16px 24px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                    TOTAL DU BON DE LIVRAISON : <span style={{ color: 'var(--primary)', fontSize: '20px', marginLeft: '8px' }}>{formatCurrency(venteItems.reduce((acc, item) => acc + (item.quantity * item.priceTTC), 0))}</span>
                   </div>
                   <button type="button" className="btn btn-blue-action" onClick={handleSaveVente} style={{ padding: '12px 28px', borderRadius: '12px' }}>
                     VALIDER LA VENTE (BL)
@@ -1159,13 +1206,13 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
           </div>
 
           {/* Card: Historique des Ventes */}
-          <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.02)', padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '6px', borderRadius: '8px' }}>
+                <div style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-secondary)', padding: '6px', borderRadius: '8px' }}>
                   <History size={16} />
                 </div>
-                <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Historique des Ventes</h3>
+                <h3 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Historique des Ventes</h3>
               </div>
 
               {/* Date Filters matching image */}
@@ -1178,7 +1225,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
-                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
+                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', cursor: 'pointer' }}
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -1189,7 +1236,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
-                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
+                    style={{ height: '36px', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', cursor: 'pointer' }}
                   />
                 </div>
                 <button 
@@ -1211,12 +1258,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 <table className="custom-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
-                      <th style={{ width: '40px', borderBottom: '1px solid #f1f5f9' }}></th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>N° BL</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>CLIENT</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TOTAL TTC</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                      <th style={{ width: '40px', borderBottom: '1px solid var(--border-color)' }}></th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>N° BL</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>CLIENT</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TOTAL TTC</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1226,28 +1273,59 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
  
                       return (
                         <React.Fragment key={tx.id}>
-                          <tr style={{ cursor: 'pointer', borderBottom: '1px solid #f8fafc' }} onClick={() => toggleRow(tx.id)}>
+                          <tr style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }} onClick={() => toggleRow(tx.id)}>
                             <td>
                               {itemsList.length > 0 ? (
-                                isExpanded ? <ChevronUp size={16} style={{ color: '#cbd5e1' }} /> : <ChevronDown size={16} style={{ color: '#cbd5e1' }} />
+                                isExpanded ? <ChevronUp size={16} style={{ color: 'var(--text-secondary)' }} /> : <ChevronDown size={16} style={{ color: 'var(--text-secondary)' }} />
                               ) : null}
                             </td>
-                            <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+                            <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
                               {getBLReference(tx.description)}
                             </td>
-                            <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
+                            <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
                               {tx.date}
                             </td>
                             <td style={{ padding: '20px 16px' }}>
-                              <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                              <span style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase', border: '1px solid var(--border-color)' }}>
                                 {tx.partner_name || 'N/A'}
                               </span>
                             </td>
-                            <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
+                            <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
                               {formatCurrency(tx.amount)}
                             </td>
                             <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                              <div style={{ display: 'inline-flex', gap: '14px', color: '#cbd5e1' }}>
+                              <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center', color: '#cbd5e1' }}>
+                                {tx.type === 'bl' ? (
+                                  <button 
+                                    style={{
+                                      padding: '4px 10px', 
+                                      fontSize: '11px', 
+                                      borderRadius: '6px', 
+                                      backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                                      color: '#34d399', 
+                                      border: '1px solid rgba(16, 185, 129, 0.3)', 
+                                      cursor: 'pointer', 
+                                      fontWeight: '700'
+                                    }} 
+                                    onClick={(e) => handleConvertToInvoice(tx, e)}
+                                    title="Facturer le Bon de Livraison"
+                                  >
+                                    Facturer
+                                  </button>
+                                ) : (
+                                  <span style={{ 
+                                    fontSize: '10px', 
+                                    fontWeight: '800', 
+                                    color: '#60a5fa', 
+                                    padding: '4px 10px', 
+                                    backgroundColor: 'rgba(59, 130, 246, 0.15)', 
+                                    borderRadius: '6px', 
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                    display: 'inline-block'
+                                  }}>
+                                    FACTURÉ
+                                  </span>
+                                )}
                                 <button className="action-icon-btn" style={{ color: '#2563eb' }} onClick={(e) => { e.stopPropagation(); toggleRow(tx.id); }} title="Voir details">
                                   <Eye size={18} />
                                 </button>
@@ -1276,12 +1354,12 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                           {/* Expanded items row */}
                           {isExpanded && itemsList.length > 0 && (
                             <tr>
-                              <td colSpan="6" style={{ padding: '0 16px 20px 56px', backgroundColor: '#fafbfd' }}>
-                                <div style={{ padding: '16px', borderLeft: '3px solid #2563eb', background: '#ffffff', borderRadius: '0 12px 12px 0', border: '1px solid #e2e8f0', borderLeftWidth: '3px', marginTop: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }}>
-                                  <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: '#64748b', marginBottom: '12px', letterSpacing: '0.5px' }}>Détail des Articles vendus :</div>
+                              <td colSpan="6" style={{ padding: '0 16px 20px 56px', backgroundColor: 'transparent' }}>
+                                <div style={{ padding: '16px', borderLeft: '3px solid var(--primary)', background: 'var(--bg-main)', borderRadius: '0 12px 12px 0', border: '1px solid var(--border-color)', borderLeftWidth: '3px', marginTop: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '12px', letterSpacing: '0.5px' }}>Détail des Articles vendus :</div>
                                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                                     <thead>
-                                      <tr style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontWeight: '700' }}>
+                                      <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', fontWeight: '700' }}>
                                         <th style={{ padding: '8px 0' }}>SKU</th>
                                         <th>DÉSIGNATION</th>
                                         <th>STOCK TYPE</th>
@@ -1296,22 +1374,22 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                                         const price = item.unitPriceHT || 0;
                                         const total = qty * price;
                                         return (
-                                          <tr key={idx} style={{ borderBottom: '1px solid #f8fafc', color: '#475569' }}>
+                                          <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                                             <td style={{ padding: '10px 0', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
-                                            <td style={{ fontWeight: '700', color: '#0f172a' }}>{item.productName}</td>
+                                            <td style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{item.productName}</td>
                                             <td>
                                               <span style={{ 
                                                 fontSize: '9px', 
                                                 fontWeight: '700', 
                                                 padding: '1px 6px', 
                                                 borderRadius: '3px',
-                                                backgroundColor: item.stockType === 'Déclassé' ? '#fdf2f2' : '#f8fafc',
-                                                color: item.stockType === 'Déclassé' ? '#ef4444' : '#64748b'
+                                                backgroundColor: item.stockType === 'Déclassé' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                                color: item.stockType === 'Déclassé' ? '#f87171' : 'var(--text-secondary)'
                                               }}>{(item.stockType || 'Neuf').toUpperCase()}</span>
                                             </td>
                                             <td style={{ fontWeight: '600' }}>{qty}</td>
                                             <td>{formatCurrency(price)}</td>
-                                            <td style={{ textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{formatCurrency(total)}</td>
+                                            <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--text-primary)' }}>{formatCurrency(total)}</td>
                                           </tr>
                                         );
                                       })}
