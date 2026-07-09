@@ -4,9 +4,11 @@ import { mockPartners, mockTransactions, mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
 import { Plus, Search, MapPin, RefreshCw, Download, Pencil, Trash2, X, Upload, ArrowLeft, Mail, Phone, Calendar, Landmark, CreditCard, DollarSign, Clock, FileText } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
+import { useIsReadOnly } from '../lib/UserContext';
 
 
 export default function Partners() {
+  const isReadOnly = useIsReadOnly();
   const [partners, setPartners] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [cheques, setCheques] = useState([]);
@@ -380,22 +382,26 @@ export default function Partners() {
             style={{ display: 'none' }}
             onChange={handleImportCSV}
           />
-          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-partners-input').click()}>
-            <Upload size={16} /> IMPORTER CSV
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-white" onClick={() => document.getElementById('csv-import-partners-input').click()}>
+              <Upload size={16} /> IMPORTER CSV
+            </button>
+          )}
           <button className="btn btn-white" onClick={handleExportCSV}>
             <Download size={16} /> EXPORTER CSV
           </button>
-          <button className="btn btn-blue-action" onClick={handleAddNewClick}>
-            <Plus size={16} /> NOUVEAU {filterType === 'client' ? 'CLIENT' : 'FOURNISSEUR'}
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-blue-action" onClick={handleAddNewClick}>
+              <Plus size={16} /> NOUVEAU {filterType === 'client' ? 'CLIENT' : 'FOURNISSEUR'}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Filter and Search bar */}
       <div className="catalog-filter-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
         {/* Client/Supplier Switch Tab */}
-        <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
+        <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'inline-flex' }}>
           <button 
             className={`tab-btn ${filterType === 'client' ? 'active' : ''}`}
             style={{ 
@@ -552,24 +558,26 @@ export default function Partners() {
                         })()}
                       </td>
                       <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
-                          <button 
-                            className="action-icon-btn" 
-                            style={{ color: '#cbd5e1', cursor: 'pointer' }}
-                            onClick={(e) => handleEditClick(partner, e)} 
-                            title="Modifier"
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button 
-                            className="action-icon-btn delete" 
-                            style={{ color: '#cbd5e1', cursor: 'pointer' }}
-                            onClick={(e) => handleDeleteClick(partner.id, e)} 
-                            title="Supprimer"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                        {!isReadOnly && (
+                          <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
+                            <button 
+                              className="action-icon-btn" 
+                              style={{ color: '#cbd5e1', cursor: 'pointer' }}
+                              onClick={(e) => handleEditClick(partner, e)} 
+                              title="Modifier"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button 
+                              className="action-icon-btn delete" 
+                              style={{ color: '#cbd5e1', cursor: 'pointer' }}
+                              onClick={(e) => handleDeleteClick(partner.id, e)} 
+                              title="Supprimer"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -657,13 +665,15 @@ export default function Partners() {
                 }}>
                   {selectedPartner.type === 'client' ? 'Client' : 'Fournisseur'}
                 </span>
-                <button 
-                  className="btn btn-white" 
-                  onClick={(e) => handleEditClick(selectedPartner, e)}
-                  style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Pencil size={14} /> Modifier
-                </button>
+                {!isReadOnly && (
+                  <button 
+                    className="btn btn-white" 
+                    onClick={(e) => handleEditClick(selectedPartner, e)}
+                    style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Pencil size={14} /> Modifier
+                  </button>
+                )}
               </div>
               <p style={{ marginTop: '6px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Fiche partenaire et historique financier complet.</p>
             </div>
@@ -745,10 +755,10 @@ export default function Partners() {
                             <DollarSign size={22} />
                           </div>
                           <div>
-                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>
                               {selectedPartner.type === 'client' ? 'Total Facturé' : 'Total Achat'}
                             </div>
-                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>
                               {formatCurrency(totalInvoiced)}
                             </div>
                           </div>
@@ -760,7 +770,7 @@ export default function Partners() {
                             <CreditCard size={22} />
                           </div>
                           <div>
-                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Total Payé</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Total Payé</div>
                             <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>
                               {formatCurrency(totalPaid)}
                             </div>
@@ -773,7 +783,7 @@ export default function Partners() {
                             <Clock size={22} />
                           </div>
                           <div>
-                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Reste à Payer</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Reste à Payer</div>
                             <div style={{ fontSize: '18px', fontWeight: '800', color: totalRemaining > 0 ? '#ef4444' : '#10b981', marginTop: '2px' }}>
                               {formatCurrency(totalRemaining)}
                             </div>

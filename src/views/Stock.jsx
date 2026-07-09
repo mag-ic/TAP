@@ -4,8 +4,10 @@ import { mockStock } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
 import { Plus, Search, Box, AlertTriangle, RefreshCw, Download, Pencil, Trash2, X, Upload } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
+import { useIsReadOnly } from '../lib/UserContext';
 
 export default function Stock() {
+  const isReadOnly = useIsReadOnly();
   const [stockItems, setStockItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -35,7 +37,12 @@ export default function Stock() {
 
       if (error) throw new Error('DB tables missing');
 
-      setStockItems(data || []);
+      const mappedData = data?.map(item => ({
+        ...item,
+        minStock: item.minstock !== undefined ? item.minstock : item.minStock,
+        declassedStock: item.declassedstock !== undefined ? item.declassedstock : item.declassedStock
+      })) || [];
+      setStockItems(mappedData);
       setUsingMockData(false);
     } catch (err) {
       setUsingMockData(true);
@@ -125,8 +132,8 @@ export default function Stock() {
             sku,
             category,
             stock: qty,
-            declassedStock: declQty,
-            minStock: minQty,
+            declassedstock: declQty,
+            minstock: minQty,
             price: price
           })
           .eq('id', editingItem.id);
@@ -154,7 +161,16 @@ export default function Stock() {
       } else {
         const { error } = await supabase
           .from('inventaire')
-          .insert([newItem]);
+          .insert([{
+            id: newItem.id,
+            name: newItem.name,
+            sku: newItem.sku,
+            category: newItem.category,
+            stock: newItem.stock,
+            declassedstock: declQty,
+            minstock: minQty,
+            price: newItem.price
+          }]);
 
         if (error) {
           alert("Erreur lors de l'insertion : " + error.message);
@@ -305,15 +321,19 @@ export default function Stock() {
             style={{ display: 'none' }}
             onChange={handleImportCSV}
           />
-          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-file-input').click()}>
-            <Upload size={16} /> IMPORTER CSV
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-white" onClick={() => document.getElementById('csv-import-file-input').click()}>
+              <Upload size={16} /> IMPORTER CSV
+            </button>
+          )}
           <button className="btn btn-white" onClick={handleExportCSV}>
             <Download size={16} /> EXPORTER CSV
           </button>
-          <button className="btn btn-blue-action" onClick={handleAddNewClick}>
-            <Plus size={16} /> NOUVEAU PRODUIT
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-blue-action" onClick={handleAddNewClick}>
+              <Plus size={16} /> NOUVEAU PRODUIT
+            </button>
+          )}
         </div>
       </div>
 
@@ -386,14 +406,16 @@ export default function Stock() {
                   <div className="product-card-icon">
                     <Box size={20} />
                   </div>
-                  <div className="product-card-actions">
-                    <button className="action-icon-btn" onClick={(e) => handleEditClick(item, e)} title="Modifier">
-                      <Pencil size={16} />
-                    </button>
-                    <button className="action-icon-btn delete" onClick={(e) => handleDeleteClick(item.id, e)} title="Supprimer">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {!isReadOnly && (
+                    <div className="product-card-actions">
+                      <button className="action-icon-btn" onClick={(e) => handleEditClick(item, e)} title="Modifier">
+                        <Pencil size={16} />
+                      </button>
+                      <button className="action-icon-btn delete" onClick={(e) => handleDeleteClick(item.id, e)} title="Supprimer">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="product-tags">

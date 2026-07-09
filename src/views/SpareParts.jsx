@@ -3,9 +3,11 @@ import { supabase } from '../lib/supabaseClient';
 import { formatCurrency } from '../lib/format';
 import { Plus, Search, Box, AlertTriangle, RefreshCw, Download, Pencil, Trash2, X, Network, Upload } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
+import { useIsReadOnly } from '../lib/UserContext';
 
 
 export default function SpareParts() {
+  const isReadOnly = useIsReadOnly();
   const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -276,15 +278,19 @@ export default function SpareParts() {
             style={{ display: 'none' }}
             onChange={handleImportCSV}
           />
-          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-parts-input').click()}>
-            <Upload size={16} /> IMPORTER CSV
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-white" onClick={() => document.getElementById('csv-import-parts-input').click()}>
+              <Upload size={16} /> IMPORTER CSV
+            </button>
+          )}
           <button className="btn btn-white" onClick={handleExportCSV}>
             <Download size={16} /> EXPORTER CSV
           </button>
-          <button className="btn btn-blue-action" onClick={handleAddNewClick}>
-            <Plus size={16} /> NOUVELLE PIÈCE
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-blue-action" onClick={handleAddNewClick}>
+              <Plus size={16} /> NOUVELLE PIÈCE
+            </button>
+          )}
         </div>
       </div>
 
@@ -347,14 +353,16 @@ export default function SpareParts() {
                   <div className="product-card-icon">
                     <Box size={20} />
                   </div>
-                  <div className="product-card-actions">
-                    <button className="action-icon-btn" onClick={(e) => handleEditClick(part, e)} title="Modifier">
-                      <Pencil size={16} />
-                    </button>
-                    <button className="action-icon-btn delete" onClick={(e) => handleDeleteClick(part.id, e)} title="Supprimer">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {!isReadOnly && (
+                    <div className="product-card-actions">
+                      <button className="action-icon-btn" onClick={(e) => handleEditClick(part, e)} title="Modifier">
+                        <Pencil size={16} />
+                      </button>
+                      <button className="action-icon-btn delete" onClick={(e) => handleDeleteClick(part.id, e)} title="Supprimer">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="product-tags">

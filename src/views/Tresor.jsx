@@ -3,8 +3,10 @@ import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockPartners, mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
 import { Plus, Search, Wallet, TrendingUp, TrendingDown, RefreshCw, FileText } from 'lucide-react';
+import { useIsReadOnly } from '../lib/UserContext';
 
 export default function Tresor() {
+  const isReadOnly = useIsReadOnly();
   const [activeSubTab, setActiveSubTab] = useState('transactions'); // 'transactions' or 'cheques'
   const [transactions, setTransactions] = useState([]);
   const [cheques, setCheques] = useState([]);
@@ -134,9 +136,11 @@ export default function Tresor() {
           <button className="btn btn-secondary" onClick={fetchTreasuryData}>
             <RefreshCw size={16} /> Actualiser
           </button>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} /> Nouvelle Transaction
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+              <Plus size={16} /> Nouvelle Transaction
+            </button>
+          )}
         </div>
       </div>
 

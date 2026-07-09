@@ -502,7 +502,7 @@ export const mockStock = [
     "name": "12000BTU WEST",
     "sku": "ON/OFF",
     "category": "MURAL",
-    "stock": 25,
+    "stock": 0,
     "minStock": 5,
     "price": 2166.666666666667,
     "declassedStock": 0
@@ -512,7 +512,7 @@ export const mockStock = [
     "name": "18000BTU ROCH",
     "sku": "ROCH",
     "category": "ON/OFF ROCH",
-    "stock": 25,
+    "stock": 0,
     "minStock": 5,
     "price": 3000,
     "declassedStock": 0
@@ -522,7 +522,7 @@ export const mockStock = [
     "name": "9000BTU 4MELEC",
     "sku": "ON/OFF",
     "category": "MURAL",
-    "stock": 25,
+    "stock": 0,
     "minStock": 5,
     "price": 1833.3333333333335,
     "declassedStock": 0
@@ -532,7 +532,7 @@ export const mockStock = [
     "name": "9000BTU ROCH",
     "sku": "ROCH ON/OFF",
     "category": "ON/OFF ROCH",
-    "stock": 25,
+    "stock": 0,
     "minStock": 5,
     "price": 1791.6666666666667,
     "declassedStock": 0
@@ -542,7 +542,7 @@ export const mockStock = [
     "name": "ST43X",
     "sku": "SIVIR",
     "category": "TV",
-    "stock": 23,
+    "stock": 0,
     "minStock": 5,
     "price": 0,
     "declassedStock": 0
@@ -552,7 +552,7 @@ export const mockStock = [
     "name": "SV09IAC",
     "sku": "SIVIR",
     "category": "9000BTU INVERTER",
-    "stock": 25,
+    "stock": 0,
     "minStock": 5,
     "price": 1121.2166666666667,
     "declassedStock": 0
@@ -562,7 +562,7 @@ export const mockStock = [
     "name": "SV12IAC",
     "sku": "SIVIR",
     "category": "12000BTU INVERTER",
-    "stock": 25,
+    "stock": 0,
     "minStock": 5,
     "price": 1121.2166666666667,
     "declassedStock": 0
@@ -572,27 +572,27 @@ export const mockStock = [
     "name": "SV7900WF SIVIR",
     "sku": "SIVIR",
     "category": "MAL AUTO",
-    "stock": 25,
+    "stock": 0,
     "minStock": 5,
     "price": 756.6666666666667,
-    "declassedStock": 4
+    "declassedStock": 0
   },
   {
     "id": "prod-1775054881472",
     "name": "SV8900WF SIVIR",
     "sku": "SIVIR",
     "category": "MAL AUTO",
-    "stock": 23,
+    "stock": 0,
     "minStock": 5,
     "price": 756.6666666666667,
-    "declassedStock": 1
+    "declassedStock": 0
   },
   {
     "id": "prod-1773397719798",
     "name": "TESTE",
     "sku": "CL",
     "category": "CL",
-    "stock": 16,
+    "stock": 0,
     "minStock": 5,
     "price": 28988.333333333336,
     "declassedStock": 0
@@ -602,7 +602,7 @@ export const mockStock = [
     "name": "TRIO ENCASTRABLE",
     "sku": "SIVIR",
     "category": "ENCASTRABLE",
-    "stock": 7,
+    "stock": 0,
     "minStock": 5,
     "price": 2125,
     "declassedStock": 0

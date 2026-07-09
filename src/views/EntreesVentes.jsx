@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockPartners, mockStock } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, Download, Upload, Eye, Pencil, FileText, Trash2, X, History, MapPin, RotateCcw, Box } from 'lucide-react';
+import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, Download, Upload, Eye, Pencil, FileText, Trash2, X, History, MapPin, RotateCcw, Box, Percent } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
 import { printDocument } from '../lib/printHelper';
+import { useIsReadOnly } from '../lib/UserContext';
 
 export default function EntreesVentes({ initialTab = 'entrees' }) {
+  const isReadOnly = useIsReadOnly();
   const [transactions, setTransactions] = useState([]);
   const [fournisseurs, setFournisseurs] = useState([]);
   const [clients, setClients] = useState([]);
@@ -17,6 +19,26 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRows, setExpandedRows] = useState({});
   const [usingMockData, setUsingMockData] = useState(false);
+  const [selectedVenteIds, setSelectedVenteIds] = useState([]);
+
+  // Commission Modal States
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
+  const [selectedVenteForCommission, setSelectedVenteForCommission] = useState(null);
+  const [commissionResponsable, setCommissionResponsable] = useState('');
+  const [commissionDate, setCommissionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [commissionMethod, setCommissionMethod] = useState('Virement');
+  const [commissionStatus, setCommissionStatus] = useState('en_attente');
+  const [commissionItems, setCommissionItems] = useState([]);
+
+  useEffect(() => {
+    setActiveSubTab(initialTab);
+    setSearchTerm('');
+    setSelectedVenteIds([]);
+  }, [initialTab]);
+
+  useEffect(() => {
+    setSelectedVenteIds([]);
+  }, [activeSubTab, subSubTab]);
 
   // Date Filters for Sales History
   const [startDate, setStartDate] = useState('');
@@ -67,7 +89,13 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       setTransactions(txData || []);
       setFournisseurs(pData?.filter(p => p.type === 'fournisseur') || []);
       setClients(pData?.filter(p => p.type === 'client') || []);
-      setStockItems(sData || []);
+      
+      const mappedStock = sData?.map(item => ({
+        ...item,
+        minStock: item.minstock !== undefined ? item.minstock : item.minStock,
+        declassedStock: item.declassedstock !== undefined ? item.declassedstock : item.declassedStock
+      })) || [];
+      setStockItems(mappedStock);
       setUsingMockData(false);
     } catch (err) {
       setUsingMockData(true);
@@ -300,6 +328,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       payment_method: venteReglement,
       status: 'confirmé',
       items: JSON.stringify(venteItems.map(item => ({
+        productId: item.productId,
         productName: item.productName,
         sku: item.sku,
         stockType: item.stockType,
@@ -330,11 +359,11 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       }
 
       for (const item of venteItems) {
-        const { data: stockData } = await supabase.from('inventaire').select('stock, declassedStock').eq('id', item.productId).single();
+        const { data: stockData } = await supabase.from('inventaire').select('stock, declassedstock').eq('id', item.productId).single();
         if (stockData) {
           if (item.stockType === 'Déclassé') {
-            const newQty = Math.max(0, (stockData.declassedStock || 0) - item.quantity);
-            await supabase.from('inventaire').update({ declassedStock: newQty }).eq('id', item.productId);
+            const newQty = Math.max(0, (stockData.declassedstock || 0) - item.quantity);
+            await supabase.from('inventaire').update({ declassedstock: newQty }).eq('id', item.productId);
           } else {
             const newQty = Math.max(0, (stockData.stock || 0) - item.quantity);
             await supabase.from('inventaire').update({ stock: newQty }).eq('id', item.productId);
@@ -366,7 +395,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
           return {
             ...t,
             type: 'vente',
-            description: newDescription
+            description: newDescription,
+            status: 'en_attente'
           };
         }
         return t;
@@ -379,7 +409,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
           .from('transactions')
           .update({
             type: 'vente',
-            description: newDescription
+            description: newDescription,
+            status: 'en_attente'
           })
           .eq('id', tx.id);
 
@@ -391,6 +422,272 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       }
     }
   };
+
+  const handleOpenCommissionModal = (tx) => {
+    const itemsList = parseItems(tx.items);
+    const mappedItems = itemsList.map(item => ({
+      productName: item.productName || 'Produit Inconnu',
+      sku: item.sku || '',
+      quantity: Number(item.quantity || 0),
+      commissionPerUnit: 0
+    }));
+
+    setSelectedVenteForCommission(tx);
+    setCommissionResponsable('');
+    setCommissionDate(new Date().toISOString().split('T')[0]);
+    setCommissionMethod('Virement');
+    setCommissionStatus('en_attente');
+    setCommissionItems(mappedItems);
+    setShowCommissionModal(true);
+  };
+
+  const handleSaveCommission = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedVenteForCommission) return;
+
+    if (!commissionResponsable.trim()) {
+      alert("Veuillez saisir le nom du responsable.");
+      return;
+    }
+
+    const totalAmount = commissionItems.reduce((sum, item) => sum + (item.commissionPerUnit * item.quantity), 0);
+    if (totalAmount <= 0) {
+      alert("Le montant de la commission doit être supérieur à 0.");
+      return;
+    }
+
+    const blRef = getBLReference(selectedVenteForCommission.description);
+    const newTx = {
+      id: 'tx-comm-' + Date.now(),
+      type: 'charge',
+      amount: totalAmount,
+      description: `Commission ${commissionResponsable} sur ${blRef}`,
+      partner_name: commissionResponsable,
+      date: commissionDate,
+      payment_method: commissionMethod,
+      status: commissionStatus,
+      items: JSON.stringify(commissionItems.map(item => ({
+        productName: item.productName,
+        sku: item.sku,
+        quantity: item.quantity,
+        commissionPerUnit: item.commissionPerUnit,
+        total: item.commissionPerUnit * item.quantity
+      })))
+    };
+
+    if (usingMockData) {
+      mockTransactions.unshift(newTx);
+      setTransactions(prev => [newTx, ...prev]);
+      alert(`La commission de ${formatCurrency(totalAmount)} a été ajoutée avec succès aux charges (Mode Démo) !`);
+    } else {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .insert([newTx]);
+
+        if (error) throw error;
+        await fetchData();
+        alert(`La commission de ${formatCurrency(totalAmount)} a été ajoutée avec succès aux charges !`);
+      } catch (err) {
+        alert("Erreur lors de l'enregistrement de la commission : " + err.message);
+        return;
+      }
+    }
+
+    setShowCommissionModal(false);
+    setSelectedVenteForCommission(null);
+  };
+
+  const handleDeleteTransaction = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm("Voulez-vous vraiment supprimer cette ligne ?")) return;
+
+    const tx = transactions.find(t => t.id === id);
+    if (!tx) return;
+
+    if (usingMockData) {
+      const itemsList = parseItems(tx.items);
+      let updatedStock = [...stockItems];
+      if (tx.type === 'bl' || tx.type === 'vente') {
+        for (const item of itemsList) {
+          updatedStock = updatedStock.map(si => {
+            const isMatch = (item.productId && si.id === item.productId) || (item.sku && si.sku === item.sku) || (item.productName && si.name === item.productName);
+            if (isMatch) {
+              if (item.stockType === 'Déclassé') {
+                return { ...si, declassedStock: (si.declassedStock || 0) + item.quantity };
+              } else {
+                return { ...si, stock: (si.stock || 0) + item.quantity };
+              }
+            }
+            return si;
+          });
+        }
+      } else if (tx.type === 'achat') {
+        for (const item of itemsList) {
+          updatedStock = updatedStock.map(si => {
+            const isMatch = (item.productId && si.id === item.productId) || (item.sku && si.sku === item.sku) || (item.productName && si.name === item.productName);
+            if (isMatch) {
+              return { ...si, stock: Math.max(0, (si.stock || 0) - item.quantity) };
+            }
+            return si;
+          });
+        }
+      }
+      setStockItems(updatedStock);
+      setTransactions(transactions.filter(t => t.id !== id));
+      alert("Transaction supprimée localement !");
+    } else {
+      try {
+        const itemsList = parseItems(tx.items);
+        if (tx.type === 'bl' || tx.type === 'vente') {
+          for (const item of itemsList) {
+            let stockData = null;
+            let targetId = item.productId;
+            
+            if (targetId) {
+              const { data } = await supabase.from('inventaire').select('id, stock, declassedstock').eq('id', targetId).single();
+              stockData = data;
+            }
+            
+            if (!stockData && item.sku) {
+              const { data } = await supabase.from('inventaire').select('id, stock, declassedstock').eq('sku', item.sku).limit(1);
+              if (data && data.length > 0) {
+                stockData = data[0];
+                targetId = stockData.id;
+              }
+            }
+            
+            if (!stockData && item.productName) {
+              const { data } = await supabase.from('inventaire').select('id, stock, declassedstock').eq('name', item.productName).limit(1);
+              if (data && data.length > 0) {
+                stockData = data[0];
+                targetId = stockData.id;
+              }
+            }
+
+            if (stockData && targetId) {
+              if (item.stockType === 'Déclassé') {
+                const newQty = (stockData.declassedstock || 0) + item.quantity;
+                await supabase.from('inventaire').update({ declassedstock: newQty }).eq('id', targetId);
+              } else {
+                const newQty = (stockData.stock || 0) + item.quantity;
+                await supabase.from('inventaire').update({ stock: newQty }).eq('id', targetId);
+              }
+            }
+          }
+        } else if (tx.type === 'achat') {
+          for (const item of itemsList) {
+            let stockData = null;
+            let targetId = item.productId;
+            
+            if (targetId) {
+              const { data } = await supabase.from('inventaire').select('id, stock').eq('id', targetId).single();
+              stockData = data;
+            }
+            
+            if (!stockData && item.sku) {
+              const { data } = await supabase.from('inventaire').select('id, stock').eq('sku', item.sku).limit(1);
+              if (data && data.length > 0) {
+                stockData = data[0];
+                targetId = stockData.id;
+              }
+            }
+            
+            if (!stockData && item.productName) {
+              const { data } = await supabase.from('inventaire').select('id, stock').eq('name', item.productName).limit(1);
+              if (data && data.length > 0) {
+                stockData = data[0];
+                targetId = stockData.id;
+              }
+            }
+
+            if (stockData && targetId) {
+              const newQty = Math.max(0, (stockData.stock || 0) - item.quantity);
+              await supabase.from('inventaire').update({ stock: newQty }).eq('id', targetId);
+            }
+          }
+        }
+
+        const { error } = await supabase
+          .from('transactions')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        setSelectedVenteIds(prev => prev.filter(vid => vid !== id));
+        alert("Transaction supprimée avec succès !");
+        await fetchData();
+      } catch (err) {
+        alert("Erreur lors de la suppression : " + err.message);
+      }
+    }
+  };
+
+  const handleDeleteSelectedVentes = async () => {
+    if (selectedVenteIds.length === 0) return;
+    if (!window.confirm(`Voulez-vous vraiment supprimer les ${selectedVenteIds.length} ventes sélectionnées ?`)) return;
+
+    if (usingMockData) {
+      let updatedStock = [...stockItems];
+      for (const id of selectedVenteIds) {
+        const tx = transactions.find(t => t.id === id);
+        if (tx && (tx.type === 'bl' || tx.type === 'vente')) {
+          const itemsList = parseItems(tx.items);
+          for (const item of itemsList) {
+            updatedStock = updatedStock.map(si => {
+              if (si.id === item.productId) {
+                if (item.stockType === 'Déclassé') {
+                  return { ...si, declassedStock: (si.declassedStock || 0) + item.quantity };
+                } else {
+                  return { ...si, stock: (si.stock || 0) + item.quantity };
+                }
+              }
+              return si;
+            });
+          }
+        }
+      }
+      setStockItems(updatedStock);
+      setTransactions(transactions.filter(t => !selectedVenteIds.includes(t.id)));
+      setSelectedVenteIds([]);
+      alert("Ventes supprimées avec succès (Mode Démo) !");
+    } else {
+      try {
+        for (const id of selectedVenteIds) {
+          const tx = transactions.find(t => t.id === id);
+          if (tx && (tx.type === 'bl' || tx.type === 'vente')) {
+            const itemsList = parseItems(tx.items);
+            for (const item of itemsList) {
+              const { data: stockData } = await supabase.from('inventaire').select('stock, declassedstock').eq('id', item.productId).single();
+              if (stockData) {
+                if (item.stockType === 'Déclassé') {
+                  const newQty = (stockData.declassedstock || 0) + item.quantity;
+                  await supabase.from('inventaire').update({ declassedstock: newQty }).eq('id', item.productId);
+                } else {
+                  const newQty = (stockData.stock || 0) + item.quantity;
+                  await supabase.from('inventaire').update({ stock: newQty }).eq('id', item.productId);
+                }
+              }
+            }
+          }
+        }
+
+        const { error } = await supabase
+          .from('transactions')
+          .delete()
+          .in('id', selectedVenteIds);
+
+        if (error) throw error;
+        setSelectedVenteIds([]);
+        alert("Ventes supprimées avec succès !");
+        await fetchData();
+      } catch (err) {
+        alert("Erreur lors de la suppression groupée : " + err.message);
+      }
+    }
+  };
+
+  const handleDeleteClick = handleDeleteTransaction;
 
   const handleExportCSV = () => {
     const BOM = "\uFEFF";
@@ -575,9 +872,11 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
             style={{ display: 'none' }}
             onChange={handleImportCSV}
           />
-          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-sales-input').click()}>
-            <Upload size={16} /> IMPORTER CSV
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-white" onClick={() => document.getElementById('csv-import-sales-input').click()}>
+              <Upload size={16} /> IMPORTER CSV
+            </button>
+          )}
           <button className="btn btn-white" onClick={handleExportCSV}>
             <Download size={16} /> EXPORTER CSV
           </button>
@@ -634,7 +933,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       {activeSubTab === 'entrees' && subSubTab === 'bc' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Card: Nouvel Arrivage (BC) */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          {!isReadOnly && (
+            <div className="glass-card" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '24px' }}>Nouvel Arrivage (BC)</h3>
             
             <form onSubmit={handleAddItemToArrivage}>
@@ -777,7 +1077,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                               type="button" 
                               className="action-icon-btn delete" 
                               onClick={() => setAddedItems(addedItems.filter((_, i) => i !== idx))}
-                              style={{ color: '#cbd5e1' }}
+                              style={{ color: 'var(--danger)' }}
+                              title="Supprimer la ligne"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -799,6 +1100,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
               </div>
             )}
           </div>
+          )}
 
           {/* Card: Historique des Arrivages (BC) */}
           <div className="glass-card" style={{ padding: '24px' }}>
@@ -818,6 +1120,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 <table className="custom-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
+                      <th style={{ width: '40px', borderBottom: '1px solid var(--border-color)' }}></th>
                       <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE BC</th>
                       <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE</th>
                       <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>FOURNISSEUR</th>
@@ -826,48 +1129,114 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTxs.map((tx) => (
-                      <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
-                          {getBCReference(tx.description)}
-                        </td>
-                        <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
-                          {tx.date}
-                        </td>
-                        <td style={{ padding: '20px 16px' }}>
-                          <span style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase', border: '1px solid var(--border-color)' }}>
-                            {tx.partner_name || 'N/A'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
-                          {formatCurrency(tx.amount)}
-                        </td>
-                        <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: '14px', color: '#cbd5e1' }}>
-                            <button className="action-icon-btn" style={{ color: '#2563eb' }} onClick={() => toggleRow(tx.id)} title="Voir details">
-                              <Eye size={18} />
-                            </button>
-                            <button className="action-icon-btn" style={{ color: '#f59e0b' }} onClick={() => alert("Edition de l'arrivage " + getBCReference(tx.description))} title="Modifier">
-                              <Pencil size={16} />
-                            </button>
-                            <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={() => {
-                              const supplier = fournisseurs.find(f => f.name === tx.partner_name);
-                              printDocument({
-                                type: "BON D'ARRIVAGE",
-                                reference: getBCReference(tx.description),
-                                date: tx.date,
-                                clientName: tx.partner_name || 'Fournisseur Inconnu',
-                                clientICE: supplier?.ice || '',
-                                clientIF: supplier?.if_id || '',
-                                items: parseItems(tx.items)
-                              });
-                            }} title="Bon d'Arrivage PDF">
-                              <FileText size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredTxs.map((tx) => {
+                      const itemsList = parseItems(tx.items);
+                      const isExpanded = expandedRows[tx.id];
+
+                      return (
+                        <React.Fragment key={tx.id}>
+                          <tr style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }} onClick={() => toggleRow(tx.id)}>
+                            <td>
+                              {itemsList.length > 0 ? (
+                                isExpanded ? <ChevronUp size={16} style={{ color: 'var(--text-secondary)' }} /> : <ChevronDown size={16} style={{ color: 'var(--text-secondary)' }} />
+                              ) : null}
+                            </td>
+                            <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
+                              {getBCReference(tx.description)}
+                            </td>
+                            <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                              {tx.date}
+                            </td>
+                            <td style={{ padding: '20px 16px' }}>
+                              <span style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase', border: '1px solid var(--border-color)' }}>
+                                {tx.partner_name || 'N/A'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
+                              {formatCurrency(tx.amount)}
+                            </td>
+                            <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                              <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center', color: '#cbd5e1' }}>
+                                <button className="action-icon-btn" style={{ color: '#2563eb' }} onClick={(e) => { e.stopPropagation(); toggleRow(tx.id); }} title="Voir details">
+                                  <Eye size={18} />
+                                </button>
+                                {!isReadOnly && (
+                                  <button className="action-icon-btn" style={{ color: '#f59e0b' }} onClick={(e) => { e.stopPropagation(); alert("Edition de l'arrivage " + getBCReference(tx.description)); }} title="Modifier">
+                                    <Pencil size={16} />
+                                  </button>
+                                )}
+                                {!isReadOnly && (
+                                  <button 
+                                    className="action-icon-btn delete" 
+                                    style={{ color: 'var(--danger)' }} 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteTransaction(tx.id, e);
+                                    }} 
+                                    title="Supprimer l'arrivage"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                                <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={(e) => {
+                                  e.stopPropagation();
+                                  const supplier = fournisseurs.find(f => f.name === tx.partner_name);
+                                  printDocument({
+                                    type: "BON D'ARRIVAGE",
+                                    reference: getBCReference(tx.description),
+                                    date: tx.date,
+                                    clientName: tx.partner_name || 'Fournisseur Inconnu',
+                                    clientICE: supplier?.ice || '',
+                                    clientIF: supplier?.if_id || '',
+                                    items: parseItems(tx.items)
+                                  });
+                                }} title="Bon d'Arrivage PDF">
+                                  <FileText size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Expanded items row */}
+                          {isExpanded && itemsList.length > 0 && (
+                            <tr>
+                              <td colSpan="6" style={{ padding: '0 16px 20px 56px', backgroundColor: 'transparent' }}>
+                                <div style={{ padding: '16px', borderLeft: '3px solid var(--primary)', background: 'var(--bg-main)', borderRadius: '0 12px 12px 0', border: '1px solid var(--border-color)', borderLeftWidth: '3px', marginTop: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '12px', letterSpacing: '0.5px' }}>Détail des Articles achetés :</div>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                    <thead>
+                                      <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', fontWeight: '700' }}>
+                                        <th style={{ padding: '8px 0' }}>SKU</th>
+                                        <th>DÉSIGNATION</th>
+                                        <th>QUANTITÉ</th>
+                                        <th>P.U. TTC</th>
+                                        <th style={{ textAlign: 'right' }}>TOTAL TTC</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {itemsList.map((item, idx) => {
+                                        const qty = item.quantity || 0;
+                                        const price = item.unitPriceTTC || item.unitPrice || 0;
+                                        const total = qty * price;
+                                        return (
+                                          <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                                            <td style={{ padding: '10px 0', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
+                                            <td style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{item.productName}</td>
+                                            <td style={{ fontWeight: '600' }}>{qty}</td>
+                                            <td>{formatCurrency(price)}</td>
+                                            <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--text-primary)' }}>{formatCurrency(total)}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -880,7 +1249,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       {activeSubTab === 'entrees' && subSubTab === 'avances' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Card: Nouvelle Avance */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          {!isReadOnly && (
+            <div className="glass-card" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '24px' }}>Nouvelle Avance Fournisseur</h3>
             
             <form onSubmit={handleSaveAdvance}>
@@ -949,6 +1319,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
               </div>
             </form>
           </div>
+          )}
 
           {/* Card: Historique des Avances */}
           <div className="glass-card" style={{ padding: '24px' }}>
@@ -998,9 +1369,11 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                         </td>
                         <td style={{ padding: '20px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '14px', color: '#cbd5e1' }}>
-                            <button className="action-icon-btn delete" style={{ color: 'var(--danger)' }} onClick={(e) => handleDeleteClick(tx.id, e)} title="Annuler l'avance">
-                              <Trash2 size={16} />
-                            </button>
+                            {!isReadOnly && (
+                              <button className="action-icon-btn delete" style={{ color: 'var(--danger)' }} onClick={(e) => handleDeleteClick(tx.id, e)} title="Annuler l'avance">
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1017,7 +1390,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
       {activeSubTab === 'ventes' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Card: Nouvelle Vente */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          {!isReadOnly && (
+            <div className="glass-card" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '24px' }}>Nouvelle Vente</h3>
             
             <form onSubmit={handleAddItemToVente}>
@@ -1182,7 +1556,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                               type="button" 
                               className="action-icon-btn delete" 
                               onClick={() => setVenteItems(venteItems.filter((_, i) => i !== idx))}
-                              style={{ color: '#cbd5e1' }}
+                              style={{ color: 'var(--danger)' }}
+                              title="Supprimer la ligne"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -1204,6 +1579,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
               </div>
             )}
           </div>
+          )}
 
           {/* Card: Historique des Ventes */}
           <div className="glass-card" style={{ padding: '24px' }}>
@@ -1254,158 +1630,396 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 Aucune vente enregistrée dans cette période.
               </div>
             ) : (
-              <div className="table-container">
-                <table className="custom-table" style={{ width: '100%' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: '40px', borderBottom: '1px solid var(--border-color)' }}></th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>N° BL</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>CLIENT</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TOTAL TTC</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTxs.map((tx) => {
-                      const itemsList = parseItems(tx.items);
-                      const isExpanded = expandedRows[tx.id];
- 
-                      return (
-                        <React.Fragment key={tx.id}>
-                          <tr style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }} onClick={() => toggleRow(tx.id)}>
-                            <td>
-                              {itemsList.length > 0 ? (
-                                isExpanded ? <ChevronUp size={16} style={{ color: 'var(--text-secondary)' }} /> : <ChevronDown size={16} style={{ color: 'var(--text-secondary)' }} />
-                              ) : null}
-                            </td>
-                            <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
-                              {getBLReference(tx.description)}
-                            </td>
-                            <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
-                              {tx.date}
-                            </td>
-                            <td style={{ padding: '20px 16px' }}>
-                              <span style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase', border: '1px solid var(--border-color)' }}>
-                                {tx.partner_name || 'N/A'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
-                              {formatCurrency(tx.amount)}
-                            </td>
-                            <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                              <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center', color: '#cbd5e1' }}>
-                                {tx.type === 'bl' ? (
-                                  <button 
-                                    style={{
+              <>
+                {selectedVenteIds.length > 0 && (
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                    border: '1px solid rgba(239, 68, 68, 0.2)', 
+                    borderRadius: '12px', 
+                    padding: '12px 20px', 
+                    marginBottom: '16px',
+                    color: 'var(--text-primary)'
+                  }}>
+                    <span style={{ fontSize: '13px', fontWeight: '700' }}>
+                      {selectedVenteIds.length} vente(s) sélectionnée(s)
+                    </span>
+                    <button 
+                      onClick={handleDeleteSelectedVentes}
+                      className="btn"
+                      style={{ 
+                        backgroundColor: '#ef4444', 
+                        color: '#ffffff', 
+                        border: 'none', 
+                        padding: '8px 16px', 
+                        borderRadius: '8px', 
+                        fontSize: '12px', 
+                        fontWeight: '800', 
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <Trash2 size={14} /> SUPPRIMER LA SÉLECTION
+                    </button>
+                  </div>
+                )}
+                <div className="table-container">
+                  <table className="custom-table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '40px', borderBottom: '1px solid var(--border-color)' }}></th>
+                        {!isReadOnly && (
+                          <th style={{ width: '40px', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={filteredTxs.length > 0 && selectedVenteIds.length === filteredTxs.length}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedVenteIds(filteredTxs.map(t => t.id));
+                                } else {
+                                  setSelectedVenteIds([]);
+                                }
+                              }}
+                              style={{ cursor: 'pointer', transform: 'scale(1.1)' }}
+                            />
+                          </th>
+                        )}
+                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>N° BL</th>
+                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE</th>
+                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>CLIENT</th>
+                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TOTAL TTC</th>
+                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTxs.map((tx) => {
+                        const itemsList = parseItems(tx.items);
+                        const isExpanded = expandedRows[tx.id];
+    
+                        return (
+                          <React.Fragment key={tx.id}>
+                            <tr style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }} onClick={() => toggleRow(tx.id)}>
+                              <td onClick={(e) => { e.stopPropagation(); toggleRow(tx.id); }}>
+                                {itemsList.length > 0 ? (
+                                  isExpanded ? <ChevronUp size={16} style={{ color: 'var(--text-secondary)' }} /> : <ChevronDown size={16} style={{ color: 'var(--text-secondary)' }} />
+                                ) : null}
+                              </td>
+                              {!isReadOnly && (
+                                <td style={{ padding: '20px 16px', width: '40px' }} onClick={(e) => e.stopPropagation()}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={selectedVenteIds.includes(tx.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedVenteIds(prev => [...prev, tx.id]);
+                                      } else {
+                                        setSelectedVenteIds(prev => prev.filter(id => id !== tx.id));
+                                      }
+                                    }}
+                                    style={{ cursor: 'pointer', transform: 'scale(1.1)' }}
+                                  />
+                                </td>
+                              )}
+                              <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
+                                {getBLReference(tx.description)}
+                              </td>
+                              <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                                {tx.date}
+                              </td>
+                              <td style={{ padding: '20px 16px' }}>
+                                <span style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase', border: '1px solid var(--border-color)' }}>
+                                  {tx.partner_name || 'N/A'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
+                                {formatCurrency(tx.amount)}
+                              </td>
+                              <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                                <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center', color: '#cbd5e1' }}>
+                                  {tx.type === 'bl' ? (
+                                    !isReadOnly && (
+                                      <button 
+                                        style={{
+                                          padding: '4px 10px', 
+                                          fontSize: '11px', 
+                                          borderRadius: '6px', 
+                                          backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                                          color: '#34d399', 
+                                          border: '1px solid rgba(16, 185, 129, 0.3)', 
+                                          cursor: 'pointer', 
+                                          fontWeight: '700'
+                                        }} 
+                                        onClick={(e) => handleConvertToInvoice(tx, e)}
+                                        title="Facturer le Bon de Livraison"
+                                      >
+                                        Facturer
+                                      </button>
+                                    )
+                                  ) : (
+                                    <span style={{ 
+                                      fontSize: '10px', 
+                                      fontWeight: '800', 
+                                      color: '#60a5fa', 
                                       padding: '4px 10px', 
-                                      fontSize: '11px', 
+                                      backgroundColor: 'rgba(59, 130, 246, 0.15)', 
                                       borderRadius: '6px', 
-                                      backgroundColor: 'rgba(16, 185, 129, 0.15)', 
-                                      color: '#34d399', 
-                                      border: '1px solid rgba(16, 185, 129, 0.3)', 
-                                      cursor: 'pointer', 
-                                      fontWeight: '700'
-                                    }} 
-                                    onClick={(e) => handleConvertToInvoice(tx, e)}
-                                    title="Facturer le Bon de Livraison"
-                                  >
-                                    Facturer
+                                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                                      display: 'inline-block'
+                                    }}>
+                                      FACTURÉ
+                                    </span>
+                                  )}
+                                  <button className="action-icon-btn" style={{ color: '#2563eb' }} onClick={(e) => { e.stopPropagation(); toggleRow(tx.id); }} title="Voir details">
+                                    <Eye size={18} />
                                   </button>
-                                ) : (
-                                  <span style={{ 
-                                    fontSize: '10px', 
-                                    fontWeight: '800', 
-                                    color: '#60a5fa', 
-                                    padding: '4px 10px', 
-                                    backgroundColor: 'rgba(59, 130, 246, 0.15)', 
-                                    borderRadius: '6px', 
-                                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                                    display: 'inline-block'
-                                  }}>
-                                    FACTURÉ
-                                  </span>
-                                )}
-                                <button className="action-icon-btn" style={{ color: '#2563eb' }} onClick={(e) => { e.stopPropagation(); toggleRow(tx.id); }} title="Voir details">
-                                  <Eye size={18} />
-                                </button>
-                                <button className="action-icon-btn" style={{ color: '#f59e0b' }} onClick={(e) => { e.stopPropagation(); alert("Edition du BL " + getBLReference(tx.description)); }} title="Modifier">
-                                  <Pencil size={16} />
-                                </button>
-                                <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={(e) => {
-                                   e.stopPropagation();
-                                   const client = clients.find(c => c.name === tx.partner_name);
-                                   printDocument({
-                                     type: 'BON DE LIVRAISON',
-                                     reference: getBLReference(tx.description),
-                                     date: tx.date,
-                                     clientName: tx.partner_name || 'Client Inconnu',
-                                     clientICE: client?.ice || '',
-                                     clientIF: client?.if_id || '',
-                                     items: parseItems(tx.items)
-                                   });
-                                 }} title="BL PDF">
-                                  <FileText size={16} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
- 
-                          {/* Expanded items row */}
-                          {isExpanded && itemsList.length > 0 && (
-                            <tr>
-                              <td colSpan="6" style={{ padding: '0 16px 20px 56px', backgroundColor: 'transparent' }}>
-                                <div style={{ padding: '16px', borderLeft: '3px solid var(--primary)', background: 'var(--bg-main)', borderRadius: '0 12px 12px 0', border: '1px solid var(--border-color)', borderLeftWidth: '3px', marginTop: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-                                  <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '12px', letterSpacing: '0.5px' }}>Détail des Articles vendus :</div>
-                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                                    <thead>
-                                      <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', fontWeight: '700' }}>
-                                        <th style={{ padding: '8px 0' }}>SKU</th>
-                                        <th>DÉSIGNATION</th>
-                                        <th>STOCK TYPE</th>
-                                        <th>QUANTITÉ</th>
-                                        <th>P.U. HT</th>
-                                        <th style={{ textAlign: 'right' }}>TOTAL HT</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {itemsList.map((item, idx) => {
-                                        const qty = item.quantity || 0;
-                                        const price = item.unitPriceHT || 0;
-                                        const total = qty * price;
-                                        return (
-                                          <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-                                            <td style={{ padding: '10px 0', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
-                                            <td style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{item.productName}</td>
-                                            <td>
-                                              <span style={{ 
-                                                fontSize: '9px', 
-                                                fontWeight: '700', 
-                                                padding: '1px 6px', 
-                                                borderRadius: '3px',
-                                                backgroundColor: item.stockType === 'Déclassé' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                                                color: item.stockType === 'Déclassé' ? '#f87171' : 'var(--text-secondary)'
-                                              }}>{(item.stockType || 'Neuf').toUpperCase()}</span>
-                                            </td>
-                                            <td style={{ fontWeight: '600' }}>{qty}</td>
-                                            <td>{formatCurrency(price)}</td>
-                                            <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--text-primary)' }}>{formatCurrency(total)}</td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
+                                  {!isReadOnly && (
+                                    <button 
+                                      className="action-icon-btn" 
+                                      style={{ color: '#10b981' }} 
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        handleOpenCommissionModal(tx); 
+                                      }} 
+                                      title="Ajouter Commission"
+                                    >
+                                      <Percent size={16} />
+                                    </button>
+                                  )}
+                                  {!isReadOnly && (
+                                    <button className="action-icon-btn" style={{ color: '#f59e0b' }} onClick={(e) => { e.stopPropagation(); alert("Edition du BL " + getBLReference(tx.description)); }} title="Modifier">
+                                      <Pencil size={16} />
+                                    </button>
+                                  )}
+                                  {!isReadOnly && (
+                                    <button 
+                                      className="action-icon-btn delete" 
+                                      style={{ color: '#ef4444' }} 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteTransaction(tx.id, e);
+                                      }} 
+                                      title="Supprimer la vente"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  )}
+                                  <button className="action-icon-btn" style={{ color: '#3b82f6' }} onClick={(e) => {
+                                     e.stopPropagation();
+                                     const client = clients.find(c => c.name === tx.partner_name);
+                                     printDocument({
+                                       type: 'BON DE LIVRAISON',
+                                       reference: getBLReference(tx.description),
+                                       date: tx.date,
+                                       clientName: tx.partner_name || 'Client Inconnu',
+                                       clientICE: client?.ice || '',
+                                       clientIF: client?.if_id || '',
+                                       items: parseItems(tx.items)
+                                     });
+                                   }} title="BL PDF">
+                                    <FileText size={16} />
+                                  </button>
                                 </div>
                               </td>
                             </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
+        
+                            {/* Expanded items row */}
+                            {isExpanded && itemsList.length > 0 && (
+                              <tr>
+                                <td colSpan={isReadOnly ? 6 : 7} style={{ padding: '0 16px 20px 56px', backgroundColor: 'transparent' }}>
+                                  <div style={{ padding: '16px', borderLeft: '3px solid var(--primary)', background: 'var(--bg-main)', borderRadius: '0 12px 12px 0', border: '1px solid var(--border-color)', borderLeftWidth: '3px', marginTop: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '12px', letterSpacing: '0.5px' }}>Détail des Articles vendus :</div>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                      <thead>
+                                        <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', fontWeight: '700' }}>
+                                          <th style={{ padding: '8px 0' }}>SKU</th>
+                                          <th>DÉSIGNATION</th>
+                                          <th>STOCK TYPE</th>
+                                          <th>QUANTITÉ</th>
+                                          <th>P.U. HT</th>
+                                          <th style={{ textAlign: 'right' }}>TOTAL HT</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {itemsList.map((item, idx) => {
+                                          const qty = item.quantity || 0;
+                                          const price = item.unitPriceHT || 0;
+                                          const total = qty * price;
+                                          return (
+                                            <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                                              <td style={{ padding: '10px 0', fontFamily: 'monospace', fontWeight: '600' }}>{item.sku}</td>
+                                              <td style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{item.productName}</td>
+                                              <td>
+                                                <span style={{ 
+                                                  fontSize: '9px', 
+                                                  fontWeight: '700', 
+                                                  padding: '1px 6px', 
+                                                  borderRadius: '3px',
+                                                  backgroundColor: item.stockType === 'Déclassé' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                                  color: item.stockType === 'Déclassé' ? '#f87171' : 'var(--text-secondary)'
+                                                }}>{(item.stockType || 'Neuf').toUpperCase()}</span>
+                                              </td>
+                                              <td style={{ fontWeight: '600' }}>{qty}</td>
+                                              <td>{formatCurrency(price)}</td>
+                                              <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--text-primary)' }}>{formatCurrency(total)}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Commission Modal */}
+      {showCommissionModal && selectedVenteForCommission && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ color: 'var(--text-primary)', maxWidth: '650px', width: '90%' }}>
+            <button className="modal-close" onClick={() => { setShowCommissionModal(false); setSelectedVenteForCommission(null); }}>
+              <X size={20} />
+            </button>
+            <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>
+              Ajouter une Commission - {getBLReference(selectedVenteForCommission.description)}
+            </h3>
+
+            <form onSubmit={handleSaveCommission}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                <div className="form-group">
+                  <label className="form-label">Responsable de la vente</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Nom du responsable..."
+                    value={commissionResponsable}
+                    onChange={(e) => setCommissionResponsable(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Date</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={commissionDate}
+                    onChange={(e) => setCommissionDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                <div className="form-group">
+                  <label className="form-label">Mode de règlement</label>
+                  <select
+                    className="form-input"
+                    value={commissionMethod}
+                    onChange={(e) => setCommissionMethod(e.target.value)}
+                  >
+                    <option value="Virement">Virement</option>
+                    <option value="Espèces">Espèces</option>
+                    <option value="Chèque">Chèque</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Statut</label>
+                  <select
+                    className="form-input"
+                    value={commissionStatus}
+                    onChange={(e) => setCommissionStatus(e.target.value)}
+                  >
+                    <option value="en_attente">À régler (En attente)</option>
+                    <option value="confirmé">Réglé d'office (Confirmé)</option>
+                  </select>
+                </div>
+              </div>
+
+              <h4 style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+                Détail des Commissions par Produit
+              </h4>
+
+              <div className="table-container" style={{ maxHeight: '250px', marginBottom: '20px' }}>
+                <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '10px', textAlign: 'left', color: 'var(--text-secondary)' }}>PRODUIT</th>
+                      <th style={{ padding: '10px', textAlign: 'center', color: 'var(--text-secondary)' }}>QTE VENDUE</th>
+                      <th style={{ padding: '10px', textAlign: 'center', color: 'var(--text-secondary)', width: '130px' }}>COMM. UNITAIRE (DH)</th>
+                      <th style={{ padding: '10px', textAlign: 'right', color: 'var(--text-secondary)' }}>TOTAL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commissionItems.map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '12px 10px', fontWeight: '600' }}>
+                          {item.productName}
+                          {item.sku && <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>SKU: {item.sku}</div>}
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>
+                          {item.quantity}
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            className="form-input"
+                            style={{ padding: '6px 8px', fontSize: '13px', textAlign: 'center', borderRadius: '6px', height: '32px' }}
+                            value={item.commissionPerUnit === 0 ? '' : item.commissionPerUnit}
+                            placeholder="0.00"
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const updated = [...commissionItems];
+                              updated[idx].commissionPerUnit = val;
+                              setCommissionItems(updated);
+                            }}
+                          />
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '700', color: 'var(--text-primary)' }}>
+                          {formatCurrency(item.commissionPerUnit * item.quantity)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-            )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '24px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                  Total Commission à Enregistrer
+                </span>
+                <span style={{ fontSize: '20px', fontWeight: '800', color: 'var(--success)' }}>
+                  {formatCurrency(commissionItems.reduce((sum, item) => sum + (item.commissionPerUnit * item.quantity), 0))}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button
+                  type="button"
+                  className="btn btn-white"
+                  onClick={() => { setShowCommissionModal(false); setSelectedVenteForCommission(null); }}
+                >
+                  Annuler
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Enregistrer la Commission
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

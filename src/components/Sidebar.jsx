@@ -10,7 +10,8 @@ import {
   Calculator,
   FileBarChart2,
   CreditCard,
-  ClipboardEdit
+  ClipboardEdit,
+  TrendingUp
 } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
@@ -26,6 +27,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'compta', label: 'Compta', icon: FileBarChart2 },
     { id: 'recouvr', label: 'Recouvr.', icon: CreditCard },
     { id: 'sav', label: 'SAV', icon: ClipboardEdit },
+    { id: 'forecast', label: 'Forecast', icon: TrendingUp }
   ];
 
   return (

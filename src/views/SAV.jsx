@@ -3,8 +3,10 @@ import { supabase } from '../lib/supabaseClient';
 import { mockSavTickets, mockPartners, mockStock } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
 import { Pencil, Download, Trash2, FileText, X } from 'lucide-react';
+import { useIsReadOnly } from '../lib/UserContext';
 
 export default function SAV() {
+  const isReadOnly = useIsReadOnly();
   const [tickets, setTickets] = useState([]);
   const [partners, setPartners] = useState([]);
   const [products, setProducts] = useState([]);
@@ -49,7 +51,12 @@ export default function SAV() {
       const { data: pData } = await supabase.from('partners').select('*').eq('type', 'client');
       const { data: sData } = await supabase.from('inventaire').select('*');
       setPartners(pData || []);
-      setProducts(sData || []);
+      
+      const mappedStock = sData?.map(item => ({
+        ...item,
+        declassedStock: item.declassedstock !== undefined ? item.declassedstock : item.declassedStock
+      })) || [];
+      setProducts(mappedStock);
     } catch (err) {
       setPartners(mockPartners);
       setProducts(mockStock);
@@ -115,6 +122,12 @@ export default function SAV() {
     if (!selectedTicket) return;
 
     if (usingMockData) {
+      if (selectedTicket.status !== 'en_cours' && editStatus === 'en_cours') {
+        const prod = mockStock.find(p => p.id === selectedTicket.product_id);
+        if (prod) {
+          prod.declassedStock = (prod.declassedStock || 0) + 1;
+        }
+      }
       setTickets(prev => prev.map(t => t.id === selectedTicket.id ? { 
         ...t, 
         status: editStatus, 
@@ -123,6 +136,22 @@ export default function SAV() {
       } : t));
     } else {
       try {
+        if (selectedTicket.status !== 'en_cours' && editStatus === 'en_cours') {
+          const { data: stockData } = await supabase
+            .from('inventaire')
+            .select('declassedstock')
+            .eq('id', selectedTicket.product_id)
+            .single();
+
+          if (stockData) {
+            const newQty = (stockData.declassedstock || 0) + 1;
+            await supabase
+              .from('inventaire')
+              .update({ declassedstock: newQty })
+              .eq('id', selectedTicket.product_id);
+          }
+        }
+
         const { error } = await supabase
           .from('sav_tickets')
           .update({ 
@@ -221,99 +250,101 @@ export default function SAV() {
       </div>
 
       {/* New Ticket Form Card */}
-      <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)', marginBottom: '28px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: '0 0 20px 0' }}>
-          Nouveau Dossier SAV
-        </h3>
-        
-        <form onSubmit={handleCreateTicket}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 3fr 1fr', gap: '16px', alignItems: 'end' }}>
-            {/* Date */}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Date</label>
-              <input
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
-                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box', cursor: 'pointer' }}
-              />
-            </div>
+      {!isReadOnly && (
+        <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)', marginBottom: '28px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: '0 0 20px 0' }}>
+            Nouveau Dossier SAV
+          </h3>
+          
+          <form onSubmit={handleCreateTicket}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 3fr 1fr', gap: '16px', alignItems: 'end' }}>
+              {/* Date */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Date</label>
+                <input
+                  type="date"
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
+                  style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box', cursor: 'pointer' }}
+                />
+              </div>
 
-            {/* Client */}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Client</label>
-              <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                required
-                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box' }}
+              {/* Client */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Client</label>
+                <select
+                  value={selectedClient}
+                  onChange={(e) => setSelectedClient(e.target.value)}
+                  required
+                  style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box' }}
+                >
+                  <option value="" style={{ backgroundColor: 'var(--bg-card)' }}>Choisir...</option>
+                  {partners.map(p => (
+                    <option key={p.id} value={p.id} style={{ backgroundColor: 'var(--bg-card)' }}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Product */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Produit</label>
+                <select
+                  value={selectedProduct}
+                  onChange={(e) => setSelectedProduct(e.target.value)}
+                  required
+                  style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box' }}
+                >
+                  <option value="" style={{ backgroundColor: 'var(--bg-card)' }}>Choisir...</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id} style={{ backgroundColor: 'var(--bg-card)' }}>
+                      {p.name} ({p.sku}) - Stock: {p.stock} (Neuf) / {p.declassedStock || 0} (Déclassé)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Panne (Issue) */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Panne</label>
+                <input
+                  type="text"
+                  placeholder="..."
+                  value={panneText}
+                  onChange={(e) => setPanneText(e.target.value)}
+                  required
+                  style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '30px',
+                  padding: '12px 24px',
+                  fontWeight: '800',
+                  fontSize: '12px',
+                  letterSpacing: '0.5px',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxSizing: 'border-box',
+                  transition: 'background-color 0.2s'
+                }}
               >
-                <option value="" style={{ backgroundColor: 'var(--bg-card)' }}>Choisir...</option>
-                {partners.map(p => (
-                  <option key={p.id} value={p.id} style={{ backgroundColor: 'var(--bg-card)' }}>{p.name}</option>
-                ))}
-              </select>
+                Créer
+              </button>
             </div>
-
-            {/* Product */}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Produit</label>
-              <select
-                value={selectedProduct}
-                onChange={(e) => setSelectedProduct(e.target.value)}
-                required
-                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box' }}
-              >
-                <option value="" style={{ backgroundColor: 'var(--bg-card)' }}>Choisir...</option>
-                {products.map(p => (
-                  <option key={p.id} value={p.id} style={{ backgroundColor: 'var(--bg-card)' }}>
-                    {p.name} ({p.sku}) - Stock: {p.stock} (Neuf) / {p.declassedStock || 0} (Déclassé)
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Panne (Issue) */}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Panne</label>
-              <input
-                type="text"
-                placeholder="..."
-                value={panneText}
-                onChange={(e) => setPanneText(e.target.value)}
-                required
-                style={{ width: '100%', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', height: '40px', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              style={{
-                backgroundColor: '#ef4444',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '30px',
-                padding: '12px 24px',
-                fontWeight: '800',
-                fontSize: '12px',
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxSizing: 'border-box',
-                transition: 'background-color 0.2s'
-              }}
-            >
-              Créer
-            </button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
 
       {/* Tickets List Table Card */}
       <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)' }}>
@@ -404,13 +435,15 @@ export default function SAV() {
                             Détails
                           </button>
 
-                          <button
-                            onClick={(e) => handleDeleteTicket(t.id, e)}
-                            style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}
-                            title="Supprimer"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {!isReadOnly && (
+                            <button
+                              onClick={(e) => handleDeleteTicket(t.id, e)}
+                              style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                              title="Supprimer"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -455,6 +488,7 @@ export default function SAV() {
                     className="form-input" 
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value)}
+                    disabled={isReadOnly}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}
                   >
                     <option value="ouvert" style={{ backgroundColor: 'var(--bg-card)' }}>Diagnostic</option>
@@ -462,18 +496,19 @@ export default function SAV() {
                     <option value="résolu" style={{ backgroundColor: 'var(--bg-card)' }}>Clôturé</option>
                   </select>
                 </div>
-
+ 
                 <div className="form-group">
                   <label className="form-label" style={{ fontWeight: '700', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Frais intervention (DH)</label>
                   <input 
                     type="number"
                     value={editCost}
                     onChange={(e) => setEditCost(e.target.value)}
+                    disabled={isReadOnly}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}
                   />
                 </div>
               </div>
-
+ 
               <div className="form-group" style={{ marginBottom: '24px' }}>
                 <label className="form-label" style={{ fontWeight: '700', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Solution Apportée</label>
                 <input 
@@ -481,13 +516,16 @@ export default function SAV() {
                   placeholder="Solution..."
                   value={editSolution}
                   onChange={(e) => setEditSolution(e.target.value)}
+                  disabled={isReadOnly}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '13px', fontWeight: '600', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}
                 />
               </div>
-
+ 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowDetailsModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', cursor: 'pointer' }}>Annuler</button>
-                <button type="submit" className="btn btn-blue-action" style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: 'none', backgroundColor: 'var(--primary)', color: '#ffffff', cursor: 'pointer' }}>Enregistrer</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowDetailsModal(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', cursor: 'pointer' }}>{isReadOnly ? 'Fermer' : 'Annuler'}</button>
+                {!isReadOnly && (
+                  <button type="submit" className="btn btn-blue-action" style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', border: 'none', backgroundColor: 'var(--primary)', color: '#ffffff', cursor: 'pointer' }}>Enregistrer</button>
+                )}
               </div>
             </form>
           </div>

@@ -36,7 +36,7 @@ export default function Dashboard({ setActiveTab }) {
 
         const { data: stockItems, error: stockError } = await supabase
           .from('inventaire')
-          .select('stock, minStock');
+          .select('stock, minstock');
 
         const { data: savTickets, error: savError } = await supabase
           .from('sav_tickets')
@@ -60,7 +60,7 @@ export default function Dashboard({ setActiveTab }) {
           .filter(t => (t.type === 'achat' || t.type === 'charge') && t.status === 'confirmé')
           .reduce((sum, t) => sum + Number(t.amount), 0);
 
-        const lowStockCount = stockItems.filter(item => item.stock <= item.minStock).length;
+        const lowStockCount = stockItems.filter(item => item.stock <= (item.minstock !== undefined ? item.minstock : item.minStock)).length;
 
         setMetrics({
           sales: salesTotal,

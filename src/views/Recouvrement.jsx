@@ -4,8 +4,10 @@ import { mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
 import { Search, Download, AlertCircle, ArrowDown, ArrowUp, Pencil, RotateCcw, X, Upload, Clock, Calendar, Trash2 } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
+import { useIsReadOnly } from '../lib/UserContext';
 
 export default function Recouvrement() {
+  const isReadOnly = useIsReadOnly();
   const [cheques, setCheques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [usingMockData, setUsingMockData] = useState(false);
@@ -242,8 +244,10 @@ export default function Recouvrement() {
     e.target.value = '';
   };
 
-  // Filter Logic
+  // Filter Logic for Cheques only (excluding Espèce/Virement)
   const filteredCheques = cheques.filter(c => {
+    if (c.bank === 'Espèce' || c.bank === 'Espèces' || c.bank === 'Virement') return false;
+
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
       (c.number && c.number.toLowerCase().includes(searchLower)) ||
@@ -271,21 +275,80 @@ export default function Recouvrement() {
     return matchesSearch && matchesType && matchesStatus && matchesDate;
   });
 
+  // Filter Logic for Bank Wire Transfers (Virements émis et reçus)
+  const filteredVirements = cheques.filter(c => {
+    if (c.bank !== 'Virement') return false;
+
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (c.number && c.number.toLowerCase().includes(searchLower)) ||
+      (c.partner_name && c.partner_name.toLowerCase().includes(searchLower)) ||
+      (c.reference && c.reference.toLowerCase().includes(searchLower));
+
+    const matchesType = 
+      filterType === 'TOUS' ||
+      (filterType === 'CLIENTS' && c.type === 'IN') ||
+      (filterType === 'FOURNIS.' && c.type === 'OUT');
+
+    const matchesStatus = 
+      filterStatus === 'all' || 
+      c.status === filterStatus;
+
+    let matchesDate = true;
+    const pDate = c.received_date || c.due_date;
+    if (startDate) {
+      matchesDate = matchesDate && pDate >= startDate;
+    }
+    if (endDate) {
+      matchesDate = matchesDate && pDate <= endDate;
+    }
+
+    return matchesSearch && matchesType && matchesStatus && matchesDate;
+  });
+
+  // Filter Logic for Sales Cash Payments (Règlements Espèces Clients)
+  const filteredCashPayments = cheques.filter(c => {
+    if (c.bank !== 'Espèce' && c.bank !== 'Espèces') return false;
+    if (c.type !== 'IN') return false;
+    if (filterType === 'FOURNIS.') return false;
+
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (c.number && c.number.toLowerCase().includes(searchLower)) ||
+      (c.partner_name && c.partner_name.toLowerCase().includes(searchLower)) ||
+      (c.reference && c.reference.toLowerCase().includes(searchLower));
+
+    const matchesStatus = 
+      filterStatus === 'all' || 
+      c.status === filterStatus;
+
+    let matchesDate = true;
+    const pDate = c.received_date || c.due_date;
+    if (startDate) {
+      matchesDate = matchesDate && pDate >= startDate;
+    }
+    if (endDate) {
+      matchesDate = matchesDate && pDate <= endDate;
+    }
+
+    return matchesSearch && matchesStatus && matchesDate;
+  });
+
   // Calculate dynamic stats
   const totalClients = cheques
-    .filter(c => c.type === 'IN')
+    .filter(c => c.type === 'IN' && c.bank !== 'Espèce' && c.bank !== 'Espèces' && c.bank !== 'Virement')
     .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   const pendingEncaissement = cheques
-    .filter(c => c.type === 'IN' && (c.status === 'impayé' || c.status === 'en_attente' || c.status === 'déposé'))
+    .filter(c => c.type === 'IN' && c.bank !== 'Espèce' && c.bank !== 'Espèces' && c.bank !== 'Virement' && (c.status === 'impayé' || c.status === 'en_attente' || c.status === 'déposé'))
     .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   const totalFournisseurs = cheques
-    .filter(c => c.type === 'OUT')
+    .filter(c => c.type === 'OUT' && c.bank !== 'Espèce' && c.bank !== 'Espèces' && c.bank !== 'Virement')
     .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   // Dynamic passed echeances count (only count deposited cheques that are past due)
-  const passedCount = cheques.filter(c => c.status === 'déposé' && new Date(c.due_date) < new Date()).length;
+  const passedCount = cheques.filter(c => c.bank !== 'Espèce' && c.bank !== 'Espèces' && c.bank !== 'Virement' && c.status === 'déposé' && new Date(c.due_date) < new Date()).length;
 
   return (
     <div className="stock-page-container">
@@ -308,9 +371,11 @@ export default function Recouvrement() {
             style={{ display: 'none' }}
             onChange={handleImportCSV}
           />
-          <button className="btn btn-white" onClick={() => document.getElementById('csv-import-cheques-input').click()}>
-            <Upload size={16} /> IMPORTER CSV
-          </button>
+          {!isReadOnly && (
+            <button className="btn btn-white" onClick={() => document.getElementById('csv-import-cheques-input').click()}>
+              <Upload size={16} /> IMPORTER CSV
+            </button>
+          )}
           <button className="btn btn-white" onClick={handleExportCSV}>
             <Download size={16} /> EXPORTER CSV
           </button>
@@ -565,78 +630,82 @@ export default function Recouvrement() {
                       </td>
                       <td style={{ padding: '16px 12px', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
-                          <button 
-                            onClick={(e) => handleUpdateStatusDirect(chq.id, 'déposé', e)}
-                            className="btn"
-                            style={{
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              borderRadius: '6px',
-                              backgroundColor: chq.status === 'déposé' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(37, 99, 235, 0.12)',
-                              color: chq.status === 'déposé' ? 'rgba(255, 255, 255, 0.25)' : '#60a5fa',
-                              border: '1px solid ' + (chq.status === 'déposé' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(37, 99, 235, 0.3)'),
-                              cursor: chq.status === 'déposé' ? 'not-allowed' : 'pointer',
-                              whiteSpace: 'nowrap',
-                              transition: 'all 0.2s',
-                              height: '24px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              lineHeight: '1'
-                            }}
-                            title="Marquer comme Déposé"
-                            disabled={chq.status === 'déposé'}
-                          >
-                            Déposer
-                          </button>
-                          <button 
-                            onClick={(e) => handleUpdateStatusDirect(chq.id, 'recouvré', e)}
-                            className="btn"
-                            style={{
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              borderRadius: '6px',
-                              backgroundColor: chq.status === 'recouvré' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(16, 185, 129, 0.12)',
-                              color: chq.status === 'recouvré' ? 'rgba(255, 255, 255, 0.25)' : '#34d399',
-                              border: '1px solid ' + (chq.status === 'recouvré' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(16, 185, 129, 0.3)'),
-                              cursor: chq.status === 'recouvré' ? 'not-allowed' : 'pointer',
-                              whiteSpace: 'nowrap',
-                              transition: 'all 0.2s',
-                              height: '24px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              lineHeight: '1'
-                            }}
-                            title="Marquer comme Encaissé"
-                            disabled={chq.status === 'recouvré'}
-                          >
-                            Encaisser
-                          </button>
-                          <button 
-                            onClick={(e) => handleUpdateStatusDirect(chq.id, 'impayé', e)}
-                            className="btn"
-                            style={{
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              borderRadius: '6px',
-                              backgroundColor: chq.status === 'impayé' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(239, 68, 68, 0.12)',
-                              color: chq.status === 'impayé' ? 'rgba(255, 255, 255, 0.25)' : '#f87171',
-                              border: '1px solid ' + (chq.status === 'impayé' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.3)'),
-                              cursor: chq.status === 'impayé' ? 'not-allowed' : 'pointer',
-                              whiteSpace: 'nowrap',
-                              transition: 'all 0.2s',
-                              height: '24px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              lineHeight: '1'
-                            }}
-                            title="Marquer comme Impayé"
-                            disabled={chq.status === 'impayé'}
-                          >
-                            Impayé
-                          </button>
+                          {!isReadOnly && (
+                            <>
+                              <button 
+                                onClick={(e) => handleUpdateStatusDirect(chq.id, 'déposé', e)}
+                                className="btn"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  borderRadius: '6px',
+                                  backgroundColor: chq.status === 'déposé' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(37, 99, 235, 0.12)',
+                                  color: chq.status === 'déposé' ? 'rgba(255, 255, 255, 0.25)' : '#60a5fa',
+                                  border: '1px solid ' + (chq.status === 'déposé' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(37, 99, 235, 0.3)'),
+                                  cursor: chq.status === 'déposé' ? 'not-allowed' : 'pointer',
+                                  whiteSpace: 'nowrap',
+                                  transition: 'all 0.2s',
+                                  height: '24px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  lineHeight: '1'
+                                }}
+                                title="Marquer comme Déposé"
+                                disabled={chq.status === 'déposé'}
+                              >
+                                Déposer
+                              </button>
+                              <button 
+                                onClick={(e) => handleUpdateStatusDirect(chq.id, 'recouvré', e)}
+                                className="btn"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  borderRadius: '6px',
+                                  backgroundColor: chq.status === 'recouvré' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(16, 185, 129, 0.12)',
+                                  color: chq.status === 'recouvré' ? 'rgba(255, 255, 255, 0.25)' : '#34d399',
+                                  border: '1px solid ' + (chq.status === 'recouvré' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(16, 185, 129, 0.3)'),
+                                  cursor: chq.status === 'recouvré' ? 'not-allowed' : 'pointer',
+                                  whiteSpace: 'nowrap',
+                                  transition: 'all 0.2s',
+                                  height: '24px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  lineHeight: '1'
+                                }}
+                                title="Marquer comme Encaissé"
+                                disabled={chq.status === 'recouvré'}
+                              >
+                                Encaisser
+                              </button>
+                              <button 
+                                onClick={(e) => handleUpdateStatusDirect(chq.id, 'impayé', e)}
+                                className="btn"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  borderRadius: '6px',
+                                  backgroundColor: chq.status === 'impayé' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(239, 68, 68, 0.12)',
+                                  color: chq.status === 'impayé' ? 'rgba(255, 255, 255, 0.25)' : '#f87171',
+                                  border: '1px solid ' + (chq.status === 'impayé' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.3)'),
+                                  cursor: chq.status === 'impayé' ? 'not-allowed' : 'pointer',
+                                  whiteSpace: 'nowrap',
+                                  transition: 'all 0.2s',
+                                  height: '24px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  lineHeight: '1'
+                                }}
+                                title="Marquer comme Impayé"
+                                disabled={chq.status === 'impayé'}
+                              >
+                                Impayé
+                              </button>
+                            </>
+                          )}
                           <button 
                             className="action-icon-btn" 
                             onClick={(e) => {
@@ -648,20 +717,24 @@ export default function Recouvrement() {
                           >
                             <Clock size={15} />
                           </button>
-                          <button 
-                            className="action-icon-btn" 
-                            onClick={(e) => handleEditClick(chq, e)} 
-                            title="Modifier le statut"
-                          >
-                            <Pencil size={15} />
-                          </button>
-                          <button 
-                            className="action-icon-btn delete" 
-                            onClick={(e) => handleDeleteCheque(chq.id, e)} 
-                            title="Supprimer le règlement"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          {!isReadOnly && (
+                            <>
+                              <button 
+                                className="action-icon-btn" 
+                                onClick={(e) => handleEditClick(chq, e)} 
+                                title="Modifier le statut"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button 
+                                className="action-icon-btn delete" 
+                                onClick={(e) => handleDeleteCheque(chq.id, e)} 
+                                title="Supprimer le règlement"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -674,6 +747,149 @@ export default function Recouvrement() {
                     </td>
                   </tr>
                 )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Card: Virements Bancaires (Émis & Reçus) */}
+      <div className="glass-card" style={{ padding: '24px', marginTop: '28px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+          <div style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-secondary)', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Clock size={16} />
+          </div>
+          <h3 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Virements Bancaires (Émis & Reçus)</h3>
+        </div>
+
+        {filteredVirements.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontStyle: 'italic', fontWeight: '600' }}>
+            Aucun virement bancaire enregistré.
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TYPE</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>PARTENAIRE</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE FACTURE</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE RÈGLEMENT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>MONTANT TTC</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>N° VIREMENT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredVirements.map((chq) => (
+                  <tr key={chq.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '20px 16px' }}>
+                      <span style={{
+                        backgroundColor: chq.type === 'IN' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: chq.type === 'IN' ? '#34d399' : '#f87171',
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        textTransform: 'uppercase',
+                        border: chq.type === 'IN' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'
+                      }}>
+                        {chq.type === 'IN' ? 'Reçu' : 'Émis'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '20px 16px', fontWeight: '700', color: 'var(--text-primary)', fontSize: '14px' }}>
+                      {chq.partner_name || 'N/A'}
+                    </td>
+                    <td style={{ padding: '20px 16px', color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>
+                      {chq.reference || 'N/A'}
+                    </td>
+                    <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                      {chq.received_date || chq.due_date || 'N/A'}
+                    </td>
+                    <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
+                      {formatCurrency(chq.amount)}
+                    </td>
+                    <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '700', fontSize: '13px' }}>
+                      {chq.number || 'N/A'}
+                    </td>
+                    <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center' }}>
+                        {!isReadOnly && (
+                          <button 
+                            className="action-icon-btn delete" 
+                            style={{ color: 'var(--danger)' }} 
+                            onClick={(e) => handleDeleteCheque(chq.id, e)} 
+                            title="Supprimer le règlement"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Card: Règlements Espèces (Ventes) */}
+      <div className="glass-card" style={{ padding: '24px', marginTop: '28px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+          <div style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-secondary)', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Clock size={16} />
+          </div>
+          <h3 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Règlements Espèces (Ventes)</h3>
+        </div>
+
+        {filteredCashPayments.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontStyle: 'italic', fontWeight: '600' }}>
+            Aucun règlement en espèces enregistré.
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>CLIENT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE FACTURE</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE RÈGLEMENT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>MONTANT TTC</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCashPayments.map((chq) => (
+                  <tr key={chq.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '20px 16px', fontWeight: '700', color: 'var(--text-primary)', fontSize: '14px' }}>
+                      {chq.partner_name || 'N/A'}
+                    </td>
+                    <td style={{ padding: '20px 16px', color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>
+                      {chq.reference || 'N/A'}
+                    </td>
+                    <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                      {chq.received_date || chq.due_date || 'N/A'}
+                    </td>
+                    <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
+                      {formatCurrency(chq.amount)}
+                    </td>
+                    <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center' }}>
+                        {!isReadOnly && (
+                          <button 
+                            className="action-icon-btn delete" 
+                            style={{ color: 'var(--danger)' }} 
+                            onClick={(e) => handleDeleteCheque(chq.id, e)} 
+                            title="Supprimer le règlement"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

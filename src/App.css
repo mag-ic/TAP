@@ -273,6 +273,27 @@
 /* Tables */
 .table-container {
   overflow-x: auto;
+  max-height: 480px;
+  overflow-y: auto;
+  position: relative;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-card);
+}
+
+.table-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.table-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .custom-table {
@@ -282,6 +303,10 @@
 }
 
 .custom-table th {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-card);
+  z-index: 2;
   padding: 14px 16px;
   color: var(--text-secondary);
   font-size: 13px;
@@ -289,6 +314,7 @@
   border-bottom: 1px solid var(--border-color);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  box-shadow: inset 0 -1px 0 var(--border-color);
 }
 
 .custom-table td {
@@ -961,8 +987,8 @@
 
 /* Modal Content Box */
 .modal-content {
-  background-color: #12131a !important; /* Slightly lighter than pitch black for depth */
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
   color: var(--text-primary) !important;
   border-radius: 24px !important;
@@ -1112,7 +1138,7 @@ textarea::placeholder {
 
 /* 6. Tab Switchers and Tab Buttons */
 .tab-switcher {
-  background-color: #0b0c10 !important;
+  background-color: var(--bg-main) !important;
   border: 1px solid var(--border-color) !important;
   border-radius: 12px !important;
   padding: 3px !important;
@@ -1135,6 +1161,63 @@ textarea::placeholder {
   color: #ffffff !important;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
   border: none !important;
+}
+
+/* 6.5 Catalog Filter Bar and inputs dark mode overrides */
+.catalog-filter-bar {
+  background-color: var(--bg-card) !important;
+  border-radius: 20px !important;
+  padding: 16px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+  margin-bottom: 28px !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.search-input-catalog {
+  background-color: var(--bg-main) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  padding: 12px 14px 12px 42px !important;
+  border-radius: 12px !important;
+}
+
+.search-input-catalog:focus {
+  background-color: var(--bg-main) !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px var(--primary-glow) !important;
+}
+
+.select-category-catalog {
+  background-color: var(--bg-main) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  min-width: 200px !important;
+}
+
+.select-category-catalog:focus {
+  border-color: var(--primary) !important;
+}
+
+.sort-catalog-btn {
+  background-color: var(--bg-card-hover) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  padding: 12px 20px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  text-transform: uppercase !important;
+}
+
+.sort-catalog-btn:hover {
+  background-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
 }
 
 /* White Buttons (btn-white) override to match dark theme */

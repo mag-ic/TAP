@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockCheques, mockPartners } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Plus, Search, RefreshCw, Download, Pencil, Clock, FileText, X, RotateCcw, Calendar, User, Info, PieChart, BarChart3, BookOpen, Calculator, Upload } from 'lucide-react';
+import { Plus, Search, RefreshCw, Download, Pencil, Clock, FileText, X, RotateCcw, Calendar, User, Info, PieChart, BarChart3, BookOpen, Calculator, Upload, Trash2 } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
 import { printDocument } from '../lib/printHelper';
+import { useIsReadOnly } from '../lib/UserContext';
 
 export default function FinanceCompta({ initialMode = 'finance' }) {
+  const isReadOnly = useIsReadOnly();
   const [transactions, setTransactions] = useState([]);
   const [cheques, setCheques] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +25,11 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [usingMockData, setUsingMockData] = useState(false);
+  const [selectedTxIds, setSelectedTxIds] = useState([]);
+
+  useEffect(() => {
+    setSelectedTxIds([]);
+  }, [activeSubTab]);
 
   // Edit Modal States
   const [showEditModal, setShowEditModal] = useState(false);
@@ -332,6 +339,57 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
     setEditingTx(null);
   };
 
+  const handleDeleteTransaction = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm("Voulez-vous vraiment supprimer cette transaction ?")) return;
+
+    if (usingMockData) {
+      setTransactions(transactions.filter(tx => tx.id !== id));
+      // Deselect if currently selected
+      setSelectedTxIds(prev => prev.filter(tid => tid !== id));
+      alert("Transaction supprimée avec succès (Mode Démo) !");
+    } else {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        setSelectedTxIds(prev => prev.filter(tid => tid !== id));
+        alert("Transaction supprimée avec succès !");
+        await fetchData();
+      } catch (err) {
+        alert("Erreur lors de la suppression : " + err.message);
+      }
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedTxIds.length === 0) return;
+    if (!window.confirm(`Voulez-vous vraiment supprimer les ${selectedTxIds.length} transactions sélectionnées ?`)) return;
+
+    if (usingMockData) {
+      setTransactions(transactions.filter(tx => !selectedTxIds.includes(tx.id)));
+      setSelectedTxIds([]);
+      alert("Transactions supprimées avec succès (Mode Démo) !");
+    } else {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .delete()
+          .in('id', selectedTxIds);
+
+        if (error) throw error;
+        setSelectedTxIds([]);
+        alert("Transactions supprimées avec succès !");
+        await fetchData();
+      } catch (err) {
+        alert("Erreur lors de la suppression : " + err.message);
+      }
+    }
+  };
+
   const handlePayClick = (tx, e) => {
     e.stopPropagation();
     const { reste } = getTxMetrics(tx);
@@ -354,7 +412,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
       return;
     }
 
-    const type = (selectedTxForPayment.type === 'vente' || selectedTxForPayment.type === 'revenu' || selectedTxForPayment.type === 'apport') ? 'IN' : 'OUT';
+    const type = (selectedTxForPayment.type === 'vente' || selectedTxForPayment.type === 'bl' || selectedTxForPayment.type === 'revenu' || selectedTxForPayment.type === 'apport') ? 'IN' : 'OUT';
     const reference = getBCReference(selectedTxForPayment.description);
     
     const status = paymentMethod === 'Chèque' ? 'en_attente' : 'recouvré';
@@ -452,14 +510,16 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
               style={{ display: 'none' }}
               onChange={handleImportCSV}
             />
-            <button className="btn btn-white" onClick={() => document.getElementById('csv-import-finance-input').click()}>
-              <Upload size={16} /> IMPORTER CSV
-            </button>
+            {!isReadOnly && (
+              <button className="btn btn-white" onClick={() => document.getElementById('csv-import-finance-input').click()}>
+                <Upload size={16} /> IMPORTER CSV
+              </button>
+            )}
             <button className="btn btn-white" onClick={handleExportCSV}>
               <Download size={16} /> EXPORTER CSV
             </button>
 
-            <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'inline-flex' }}>
+            <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'inline-flex' }}>
               {['factures', 'achats', 'charges', 'apports'].map((tab) => (
                 <button 
                   key={tab}
@@ -497,7 +557,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                 type="text"
                 placeholder="Tiers, Référence..."
                 className="form-input search-input-catalog"
-                style={{ height: '38px', paddingLeft: '38px', borderRadius: '10px', fontSize: '12px', border: '1px solid #cbd5e1' }}
+                style={{ height: '38px', paddingLeft: '38px', borderRadius: '10px', fontSize: '12px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -508,7 +568,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
             <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>RESPONSABLE</span>
             <select
               className="select-category-catalog"
-              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', width: '100%', minWidth: 'unset' }}
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', width: '100%', minWidth: 'unset' }}
               value={filterResponsable}
               onChange={(e) => setFilterResponsable(e.target.value)}
             >
@@ -521,7 +581,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
             <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>STATUTS</span>
             <select
               className="select-category-catalog"
-              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', width: '100%', minWidth: 'unset' }}
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', width: '100%', minWidth: 'unset' }}
               value={filterStatut}
               onChange={(e) => setFilterStatut(e.target.value)}
             >
@@ -539,7 +599,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
               type="date"
               className="form-input"
               onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
-              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', cursor: 'pointer' }}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
@@ -551,7 +611,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
               type="date"
               className="form-input"
               onClick={(e) => { if (typeof e.currentTarget.showPicker === 'function') e.currentTarget.showPicker(); }}
-              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
+              style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', cursor: 'pointer' }}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
@@ -570,7 +630,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px', marginBottom: '24px' }}>
           <div className="glass-card" style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(0, 0, 0, 0.01)', padding: '24px' }}>
             <span style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TOTAL MONTANT</span>
-            <div style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', marginTop: '12px' }}>
+            <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '12px' }}>
               {totalAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '16px', fontWeight: '700' }}>DH</span>
             </div>
           </div>
@@ -601,134 +661,211 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
               Aucune transaction trouvée.
             </div>
           ) : (
-            <div className="table-container">
-              <table className="custom-table" style={{ width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE / LIBELLÉ</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TIERS</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RESPONSABLE</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>STATUT</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT GLOBAL</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT RÉGLÉ</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT NON RÉGLÉ</th>
-                    <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTxs.map((tx) => {
-                    const { total, regle, reste } = getTxMetrics(tx);
-                    const ref = getBCReference(tx.description);
-                    const txCheques = cheques.filter(c => c.reference === ref || tx.description?.includes(c.reference));
-                    const hasImpayeCheque = txCheques.some(c => c.status === 'impayé');
-                    
-                    let statusText = 'IMPAYÉ';
-                    let statusColor = '#ef4444';
-                    let statusBg = '#fdf2f2';
+            <>
+              {selectedTxIds.length > 0 && (
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                  border: '1px solid rgba(239, 68, 68, 0.2)', 
+                  borderRadius: '12px', 
+                  padding: '12px 20px', 
+                  marginBottom: '16px',
+                  color: 'var(--text-primary)'
+                }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700' }}>
+                    {selectedTxIds.length} transaction(s) sélectionnée(s)
+                  </span>
+                  <button 
+                    onClick={handleDeleteSelected}
+                    className="btn"
+                    style={{ 
+                      backgroundColor: '#ef4444', 
+                      color: '#ffffff', 
+                      border: 'none', 
+                      padding: '8px 16px', 
+                      borderRadius: '8px', 
+                      fontSize: '12px', 
+                      fontWeight: '800', 
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Trash2 size={14} /> SUPPRIMER LA SÉLECTION
+                  </button>
+                </div>
+              )}
+              <div className="table-container">
+                <table className="custom-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      {!isReadOnly && (
+                        <th style={{ width: '40px', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={filteredTxs.length > 0 && selectedTxIds.length === filteredTxs.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedTxIds(filteredTxs.map(t => t.id));
+                              } else {
+                                setSelectedTxIds([]);
+                              }
+                            }}
+                            style={{ cursor: 'pointer', transform: 'scale(1.1)' }}
+                          />
+                        </th>
+                      )}
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE / LIBELLÉ</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TIERS</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RESPONSABLE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>STATUT</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT GLOBAL</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT RÉGLÉ</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT NON RÉGLÉ</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTxs.map((tx) => {
+                      const { total, regle, reste } = getTxMetrics(tx);
+                      const ref = getBCReference(tx.description);
+                      const txCheques = cheques.filter(c => c.reference === ref || tx.description?.includes(c.reference));
+                      const hasImpayeCheque = txCheques.some(c => c.status === 'impayé');
+                      
+                      let statusText = 'IMPAYÉ';
+                      let statusColor = '#ef4444';
+                      let statusBg = '#fdf2f2';
 
-                    if (tx.status === 'confirmé' || regle === total) {
-                      statusText = 'PAYÉ';
-                      statusColor = '#10b981';
-                      statusBg = '#ecfdf5';
-                    } else if (tx.status === 'annulé') {
-                      statusText = 'ANNULÉ';
-                      statusColor = '#64748b';
-                      statusBg = '#f1f5f9';
-                    } else if (regle > 0 && regle < total) {
-                      statusText = 'PARTIEL';
-                      statusColor = '#f59e0b';
-                      statusBg = '#fffbeb';
-                    }
+                      if (tx.status === 'confirmé' || regle === total) {
+                        statusText = 'PAYÉ';
+                        statusColor = '#10b981';
+                        statusBg = '#ecfdf5';
+                      } else if (tx.status === 'annulé') {
+                        statusText = 'ANNULÉ';
+                        statusColor = '#64748b';
+                        statusBg = '#f1f5f9';
+                      } else if (regle > 0 && regle < total) {
+                        statusText = 'PARTIEL';
+                        statusColor = '#f59e0b';
+                        statusBg = '#fffbeb';
+                      }
 
-                    return (
-                      <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                        <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
-                          {getDisplayReference(tx.description)}
-                        </td>
-                        <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
-                          {tx.date}
-                        </td>
-                        <td style={{ padding: '20px 16px' }}>
-                          <span style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
-                            {tx.partner_name || 'N/A'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '20px 16px', color: '#475569', fontWeight: '600' }}>
-                          ---
-                        </td>
-                        <td style={{ padding: '20px 16px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                            <span style={{ color: statusColor, backgroundColor: statusBg, fontSize: '10px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', letterSpacing: '0.5px', display: 'inline-block' }}>
-                              {statusText}
+                      return (
+                        <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                          {!isReadOnly && (
+                            <td style={{ padding: '20px 16px', width: '40px' }} onClick={(e) => e.stopPropagation()}>
+                              <input 
+                                type="checkbox" 
+                                checked={selectedTxIds.includes(tx.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedTxIds(prev => [...prev, tx.id]);
+                                  } else {
+                                    setSelectedTxIds(prev => prev.filter(id => id !== tx.id));
+                                  }
+                                }}
+                                style={{ cursor: 'pointer', transform: 'scale(1.1)' }}
+                              />
+                            </td>
+                          )}
+                          <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
+                            {getDisplayReference(tx.description)}
+                          </td>
+                          <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                            {tx.date}
+                          </td>
+                          <td style={{ padding: '20px 16px' }}>
+                            <span style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                              {tx.partner_name || 'N/A'}
                             </span>
-                            {hasImpayeCheque && (
-                              <span style={{ 
-                                backgroundColor: '#fee2e2', 
-                                color: '#dc2626', 
-                                fontSize: '10px', 
-                                fontWeight: '800', 
-                                padding: '2px 6px', 
-                                borderRadius: '4px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                border: '1px solid #fca5a5'
-                              }}>
-                                ⚠️ CHÈQUE IMPAYÉ
+                          </td>
+                          <td style={{ padding: '20px 16px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                            ---
+                          </td>
+                          <td style={{ padding: '20px 16px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                              <span style={{ color: statusColor, backgroundColor: statusBg, fontSize: '10px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', letterSpacing: '0.5px', display: 'inline-block' }}>
+                                {statusText}
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ padding: '20px 16px', fontWeight: '800', color: '#0f172a', fontSize: '15px' }}>
-                          {formatCurrency(total)}
-                        </td>
-                        <td style={{ padding: '20px 16px', fontWeight: '800', color: '#10b981', fontSize: '15px' }}>
-                          {formatCurrency(regle)}
-                        </td>
-                        <td style={{ padding: '20px 16px', fontWeight: '800', color: reste > 0 ? '#ef4444' : '#10b981', fontSize: '15px' }}>
-                          {formatCurrency(reste)}
-                        </td>
-                        <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
-                            {reste > 0 && (
-                              <button className="action-icon-btn" style={{ color: '#2563eb', cursor: 'pointer' }} onClick={(e) => handlePayClick(tx, e)} title="Régler / Enregistrer un règlement">
-                                <Plus size={16} />
+                              {hasImpayeCheque && (
+                                <span style={{ 
+                                  backgroundColor: '#fee2e2', 
+                                  color: '#dc2626', 
+                                  fontSize: '10px', 
+                                  fontWeight: '800', 
+                                  padding: '2px 6px', 
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  border: '1px solid #fca5a5'
+                                }}>
+                                  ⚠️ CHÈQUE IMPAYÉ
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
+                            {formatCurrency(total)}
+                          </td>
+                          <td style={{ padding: '20px 16px', fontWeight: '800', color: '#10b981', fontSize: '15px' }}>
+                            {formatCurrency(regle)}
+                          </td>
+                          <td style={{ padding: '20px 16px', fontWeight: '800', color: reste > 0 ? '#ef4444' : '#10b981', fontSize: '15px' }}>
+                            {formatCurrency(reste)}
+                          </td>
+                          <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
+                              {reste > 0 && !isReadOnly && (
+                                <button className="action-icon-btn" style={{ color: '#2563eb', cursor: 'pointer' }} onClick={(e) => handlePayClick(tx, e)} title="Régler / Enregistrer un règlement">
+                                  <Plus size={16} />
+                                </button>
+                              )}
+                              {!isReadOnly && (
+                                <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={(e) => handleEditClick(tx, e)} title="Modifier">
+                                  <Pencil size={16} />
+                                </button>
+                              )}
+                              {!isReadOnly && (
+                                <button className="action-icon-btn delete" style={{ color: '#ef4444', cursor: 'pointer' }} onClick={(e) => handleDeleteTransaction(tx.id, e)} title="Supprimer">
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                              <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={(e) => handleHistoryClick(tx, e)} title="Historique">
+                                <Clock size={16} />
                               </button>
-                            )}
-                            <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={(e) => handleEditClick(tx, e)} title="Modifier">
-                              <Pencil size={16} />
-                            </button>
-                            <button className="action-icon-btn" style={{ color: '#cbd5e1', cursor: 'pointer' }} onClick={(e) => handleHistoryClick(tx, e)} title="Historique">
-                              <Clock size={16} />
-                            </button>
-                            <button 
-                              className="action-icon-btn" 
-                              style={{ color: '#cbd5e1', cursor: 'pointer' }} 
-                              onClick={() => {
-                                const client = partners.find(p => p.name === tx.partner_name);
-                                printDocument({
-                                  type: (tx.type === 'vente' || tx.type === 'revenu') ? 'FACTURE' : 'BON DE LIVRAISON',
-                                  reference: getDisplayReference(tx.description),
-                                  date: tx.date,
-                                  clientName: tx.partner_name || 'Client Inconnu',
-                                  clientICE: client?.ice || '',
-                                  clientIF: client?.if_id || '',
-                                  items: parseItems(tx.items)
-                                });
-                              }} 
-                              title="PDF Justificatif"
-                            >
-                              <FileText size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                              <button 
+                                className="action-icon-btn" 
+                                style={{ color: '#cbd5e1', cursor: 'pointer' }} 
+                                onClick={() => {
+                                  const client = partners.find(p => p.name === tx.partner_name);
+                                  printDocument({
+                                    type: (tx.type === 'vente' || tx.type === 'revenu') ? 'FACTURE' : 'BON DE LIVRAISON',
+                                    reference: getDisplayReference(tx.description),
+                                    date: tx.date,
+                                    clientName: tx.partner_name || 'Client Inconnu',
+                                    clientICE: client?.ice || '',
+                                    clientIF: client?.if_id || '',
+                                    items: parseItems(tx.items)
+                                  });
+                                }} 
+                                title="PDF Justificatif"
+                              >
+                                <FileText size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 
@@ -1059,7 +1196,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
         
         <div className="catalog-header-actions" style={{ alignItems: 'center' }}>
           {/* Blue-accented tab switcher */}
-          <div className="tab-switcher" style={{ margin: 0, padding: '4px', backgroundColor: '#f1f5f9', borderRadius: '30px', display: 'inline-flex' }}>
+          <div className="tab-switcher" style={{ margin: 0, padding: '4px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '30px', display: 'inline-flex' }}>
             {['bilan', 'cpc', 'grand-livre'].map((tab) => (
               <button 
                 key={tab}
