@@ -1,5 +1,5 @@
 
-export const mockPartners = [
+const initialPartners = [
   {
     "id": "ent-1769607910689",
     "name": "ESPACE STEEL",
@@ -496,7 +496,7 @@ export const mockPartners = [
     "if_id": null
   }
 ];
-export const mockStock = [
+const initialStock = [
   {
     "id": "prod-1769683860675",
     "name": "12000BTU WEST",
@@ -609,7 +609,7 @@ export const mockStock = [
   }
 ];
 
-export const mockSavTickets = [
+const initialSavTickets = [
   {
     "id": "sav-1770127097230",
     "client_name": "BOUCHAIB DAIKO",
@@ -793,7 +793,7 @@ export const mockSavTickets = [
     "updated_at": "2026-05-22"
   }
 ];
-export const mockCheques = [
+const initialCheques = [
   {
     "id": "chq-1771846362093",
     "type": "IN",
@@ -2151,7 +2151,7 @@ export const mockCheques = [
     "received_date": "2026-06-11"
   }
 ];
-export const mockTransactions = [
+const initialTransactions = [
   {
     "id": "ste-1769683934691",
     "type": "achat",
@@ -2921,3 +2921,58 @@ export const mockTransactions = [
     "items": "[{\"productName\":\"SV7900WF SIVIR\",\"quantity\":10,\"totalHT\":17916.666666666668,\"sku\":\"SIVIR\",\"unitPriceHT\":1791.6666666666667},{\"productName\":\"SV8900WF SIVIR\",\"totalHT\":11500,\"unitPriceHT\":1916.6666666666667,\"sku\":\"SIVIR\",\"quantity\":6}]"
   }
 ];
+
+
+const loadLocal = (key, defaultVal) => {
+  try {
+    const val = localStorage.getItem(key);
+    if (val) return JSON.parse(val);
+  } catch (e) {}
+  return defaultVal;
+};
+
+const saveLocal = (key, val) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch (e) {}
+};
+
+const createPersistentArray = (key, initialVal) => {
+  const target = loadLocal(key, initialVal);
+  const handler = {
+    get(target, prop, receiver) {
+      const current = loadLocal(key, target);
+      const value = Reflect.get(current, prop, receiver);
+      if (typeof value === 'function') {
+        return function(...args) {
+          const res = value.apply(current, args);
+          saveLocal(key, current);
+          return res;
+        };
+      }
+      return value;
+    },
+    set(target, prop, value, receiver) {
+      const current = loadLocal(key, target);
+      const res = Reflect.set(current, prop, value, receiver);
+      saveLocal(key, current);
+      return res;
+    }
+  };
+  return new Proxy(target, handler);
+};
+
+export const mockPartners = createPersistentArray('tap_partners', initialPartners);
+export const mockStock = createPersistentArray('tap_stock', initialStock);
+export const mockSavTickets = createPersistentArray('tap_sav_tickets', initialSavTickets);
+export const mockCheques = createPersistentArray('tap_cheques', initialCheques);
+export const mockTransactions = createPersistentArray('tap_transactions', initialTransactions);
+
+export const resetLocalDatabase = () => {
+  localStorage.removeItem('tap_partners');
+  localStorage.removeItem('tap_stock');
+  localStorage.removeItem('tap_sav_tickets');
+  localStorage.removeItem('tap_cheques');
+  localStorage.removeItem('tap_transactions');
+  window.location.reload();
+};

@@ -233,7 +233,30 @@ export default function Dashboard({ setActiveTab }) {
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Base de Données</div>
             <div style={{ fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: usingMockData ? 'var(--warning)' : 'var(--success)' }} />
-              {usingMockData ? 'Connecté (Fichiers CSV TAP)' : 'Connecté à Supabase'}
+              <span>{usingMockData ? 'Connecté (Données Locales)' : 'Connecté à Supabase'}</span>
+              {usingMockData && (
+                <button 
+                  onClick={() => {
+                    if (window.confirm("Voulez-vous vraiment réinitialiser toutes les données locales à leur état d'origine ? Toutes vos modifications locales seront perdues.")) {
+                      import('../lib/mockData').then(m => m.resetLocalDatabase());
+                    }
+                  }}
+                  style={{
+                    marginLeft: 'auto',
+                    background: 'rgba(244, 63, 94, 0.12)',
+                    border: '1px solid rgba(244, 63, 94, 0.25)',
+                    color: '#f43f5e',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit'
+                  }}
+                >
+                  Réinitialiser
+                </button>
+              )}
             </div>
           </div>
         </div>
