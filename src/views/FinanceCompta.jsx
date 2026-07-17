@@ -38,6 +38,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
   const [editDescription, setEditDescription] = useState('');
   const [editAmount, setEditAmount] = useState('');
 
+  // Add Charge Modal States
+  const [showAddChargeModal, setShowAddChargeModal] = useState(false);
+  const [chargeDescription, setChargeDescription] = useState('');
+  const [chargeAmount, setChargeAmount] = useState('');
+  const [chargePartner, setChargePartner] = useState('');
+  const [chargeDate, setChargeDate] = useState(new Date().toISOString().split('T')[0]);
+  const [chargeStatus, setChargeStatus] = useState('confirmé');
+  const [chargePaymentMethod, setChargePaymentMethod] = useState('Espèces');
+  const [chargeBank, setChargeBank] = useState('ATW');
+  const [chargeNumber, setChargeNumber] = useState('');
+
   // Payment Modal States
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedTxForPayment, setSelectedTxForPayment] = useState(null);
@@ -339,6 +350,78 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
     setEditingTx(null);
   };
 
+  const handleSaveCharge = async (e) => {
+    e.preventDefault();
+    if (!chargeDescription || !chargeAmount) return;
+
+    const txId = 'tx-' + Date.now();
+    const finalAmount = parseFloat(chargeAmount);
+
+    const newTx = {
+      id: txId,
+      type: 'charge',
+      amount: finalAmount,
+      description: chargeDescription,
+      partner_name: chargePartner || 'Divers',
+      date: chargeDate,
+      payment_method: chargePaymentMethod,
+      status: chargeStatus
+    };
+
+    let newCheque = null;
+    if (chargeStatus === 'confirmé' && chargePaymentMethod !== 'Crédit') {
+      newCheque = {
+        id: 'chq-' + Date.now(),
+        type: 'OUT',
+        reference: chargeDescription,
+        status: chargePaymentMethod === 'Chèque' ? 'en_attente' : 'recouvré',
+        partner_name: chargePartner || 'Divers',
+        due_date: chargeDate,
+        amount: finalAmount,
+        bank: chargePaymentMethod === 'Chèque' ? chargeBank : (chargePaymentMethod === 'Espèces' ? 'Espèce' : chargePaymentMethod),
+        number: chargePaymentMethod === 'Chèque' ? chargeNumber : `${chargePaymentMethod.toUpperCase().slice(0, 3)}-${Date.now().toString().slice(-4)}`,
+        received_date: chargeDate
+      };
+    }
+
+    if (usingMockData) {
+      setTransactions([newTx, ...transactions]);
+      mockTransactions.unshift(newTx);
+      if (newCheque) {
+        setCheques([newCheque, ...cheques]);
+        mockCheques.unshift(newCheque);
+      }
+      alert("Charge ajoutée avec succès (Mode Démo) !");
+    } else {
+      try {
+        const { error: txError } = await supabase.from('transactions').insert([newTx]);
+        if (txError) throw txError;
+
+        if (newCheque) {
+          const { error: chqError } = await supabase.from('cheques').insert([newCheque]);
+          if (chqError) throw chqError;
+        }
+
+        alert("Charge ajoutée avec succès !");
+        await fetchData();
+      } catch (err) {
+        alert("Erreur lors de l'ajout de la charge : " + err.message);
+        return;
+      }
+    }
+
+    // Reset Form & Close
+    setShowAddChargeModal(false);
+    setChargeDescription('');
+    setChargeAmount('');
+    setChargePartner('');
+    setChargeDate(new Date().toISOString().split('T')[0]);
+    setChargeStatus('confirmé');
+    setChargePaymentMethod('Espèces');
+    setChargeBank('ATW');
+    setChargeNumber('');
+  };
+
   const handleDeleteTransaction = async (id, e) => {
     if (e) e.stopPropagation();
     if (!window.confirm("Voulez-vous vraiment supprimer cette transaction ?")) return;
@@ -518,6 +601,27 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
             <button className="btn btn-white" onClick={handleExportCSV}>
               <Download size={16} /> EXPORTER CSV
             </button>
+            {!isReadOnly && activeSubTab === 'charges' && (
+              <button 
+                className="btn btn-blue-action" 
+                onClick={() => {
+                  setChargeDate(new Date().toISOString().split('T')[0]);
+                  setShowAddChargeModal(true);
+                }}
+                style={{
+                  height: '38px',
+                  borderRadius: '10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: '700',
+                  fontSize: '11px',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                + Nouvelle Charge
+              </button>
+            )}
 
             <div className="tab-switcher" style={{ margin: 0, padding: '2px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'inline-flex' }}>
               {['factures', 'achats', 'charges', 'apports'].map((tab) => (
@@ -912,6 +1016,136 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Annuler</button>
                   <button type="submit" className="btn btn-blue-action">Enregistrer</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Add Charge Modal */}
+        {showAddChargeModal && (
+          <div className="modal-overlay">
+            <div className="modal-content" style={{ color: 'var(--text-primary)', maxWidth: '500px' }}>
+              <button className="modal-close" onClick={() => setShowAddChargeModal(false)}>
+                <X size={20} />
+              </button>
+              <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Ajouter une Nouvelle Charge</h3>
+              <form onSubmit={handleSaveCharge}>
+                
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label className="form-label">Libellé / Description de la Charge</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Loyer Mensuel, Électricité, Commission..."
+                    value={chargeDescription}
+                    onChange={(e) => setChargeDescription(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-row" style={{ marginBottom: '16px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Montant Global (DH)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-input"
+                      placeholder="0.00"
+                      value={chargeAmount}
+                      onChange={(e) => setChargeAmount(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Date</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={chargeDate}
+                      onChange={(e) => setChargeDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row" style={{ marginBottom: '16px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Bénéficiaire / Tiers</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Ex: REDAL, Propriétaire, Ali..."
+                      value={chargePartner}
+                      onChange={(e) => setChargePartner(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Statut du Paiement</label>
+                    <select 
+                      className="form-input" 
+                      value={chargeStatus} 
+                      onChange={(e) => setChargeStatus(e.target.value)}
+                    >
+                      <option value="confirmé">Payé (Confirmé)</option>
+                      <option value="en_attente">Non Payé (En attente)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {chargeStatus === 'confirmé' && (
+                  <div style={{ padding: '16px', backgroundColor: 'var(--bg-main)', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>Détails du Paiement</div>
+                    
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label className="form-label">Mode de Règlement</label>
+                      <select 
+                        className="form-input" 
+                        value={chargePaymentMethod} 
+                        onChange={(e) => setChargePaymentMethod(e.target.value)}
+                      >
+                        <option value="Espèces">Espèces</option>
+                        <option value="Chèque">Chèque</option>
+                        <option value="Virement">Virement</option>
+                        <option value="Crédit">Crédit</option>
+                      </select>
+                    </div>
+
+                    {chargePaymentMethod === 'Chèque' && (
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label className="form-label">Banque de Dépôt</label>
+                          <select 
+                            className="form-input" 
+                            value={chargeBank}
+                            onChange={(e) => setChargeBank(e.target.value)}
+                          >
+                            <option value="ATW">ATW</option>
+                            <option value="CDM">CDM</option>
+                            <option value="BP">BP</option>
+                            <option value="CIH">CIH</option>
+                            <option value="BMCE">BMCE</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">N° Chèque</label>
+                          <input 
+                            type="text"
+                            className="form-input"
+                            placeholder="Ex: 123456..."
+                            value={chargeNumber}
+                            onChange={(e) => setChargeNumber(e.target.value)}
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowAddChargeModal(false)}>Annuler</button>
+                  <button type="submit" className="btn btn-blue-action">Ajouter la Charge</button>
                 </div>
               </form>
             </div>
