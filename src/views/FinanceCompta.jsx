@@ -920,7 +920,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   <thead>
                     <tr>
                       {!isReadOnly && (
-                        <th style={{ width: '40px', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>
+                        <th style={{ width: '40px', borderBottom: '1px solid #f1f5f9', padding: '12px 10px' }}>
                           <input 
                             type="checkbox" 
                             checked={filteredTxs.length > 0 && selectedTxIds.length === filteredTxs.length}
@@ -935,16 +935,16 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                           />
                         </th>
                       )}
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reference')}>RÉFÉRENCE / LIBELLÉ{getSortIndicator('reference')}</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('date')}>DATE{getSortIndicator('date')}</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('partner_name')}>TIERS{getSortIndicator('partner_name')}</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('type')}>{activeSubTab === 'charges' ? 'TYPE DE CHARGE' : 'TYPE'}{getSortIndicator('type')}</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>STATUT</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('unpaid_count')}>IMPAYÉS{getSortIndicator('unpaid_count')}</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('amount')}>MONTANT GLOBAL{getSortIndicator('amount')}</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('regle')}>MONTANT RÉGLÉ{getSortIndicator('regle')}</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reste')}>MONTANT NON RÉGLÉ{getSortIndicator('reste')}</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} onClick={() => requestSort('reference')}>RÉFÉRENCE / LIBELLÉ{getSortIndicator('reference')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} onClick={() => requestSort('date')}>DATE{getSortIndicator('date')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} onClick={() => requestSort('partner_name')}>TIERS{getSortIndicator('partner_name')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} onClick={() => requestSort('type')}>{activeSubTab === 'charges' ? 'TYPE DE CHARGE' : 'TYPE'}{getSortIndicator('type')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', whiteSpace: 'nowrap' }}>STATUT</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} onClick={() => requestSort('unpaid_count')}>IMPAYÉS{getSortIndicator('unpaid_count')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} onClick={() => requestSort('amount')}>MONTANT GLOBAL{getSortIndicator('amount')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} onClick={() => requestSort('regle')}>MONTANT RÉGLÉ{getSortIndicator('regle')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} onClick={() => requestSort('reste')}>MONTANT NON RÉGLÉ{getSortIndicator('reste')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -975,7 +975,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                       return (
                         <tr key={tx.id} style={{ borderBottom: '1px solid #f8fafc' }}>
                           {!isReadOnly && (
-                            <td style={{ padding: '20px 16px', width: '40px' }} onClick={(e) => e.stopPropagation()}>
+                            <td style={{ padding: '12px 10px', width: '40px' }} onClick={(e) => e.stopPropagation()}>
                               <input 
                                 type="checkbox" 
                                 checked={selectedTxIds.includes(tx.id)}
@@ -990,18 +990,18 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                               />
                             </td>
                           )}
-                          <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
+                          <td style={{ padding: '12px 10px', fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                             {getDisplayReference(tx.description)}
                           </td>
-                          <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                          <td style={{ padding: '12px 10px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px', whiteSpace: 'nowrap' }}>
                             {tx.date}
                           </td>
-                          <td style={{ padding: '20px 16px' }}>
+                          <td style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>
                             <span style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
                               {tx.partner_name || 'N/A'}
                             </span>
                           </td>
-                          <td style={{ padding: '20px 16px' }}>
+                          <td style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>
                             {activeSubTab === 'charges' ? (
                               <span style={{ 
                                 backgroundColor: 'rgba(59, 130, 246, 0.12)', 
@@ -1020,30 +1020,12 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                               </span>
                             )}
                           </td>
-                          <td style={{ padding: '20px 16px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                              <span style={{ color: statusColor, backgroundColor: statusBg, fontSize: '10px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', letterSpacing: '0.5px', display: 'inline-block' }}>
-                                {statusText}
-                              </span>
-                              {hasImpayeCheque && (
-                                <span style={{ 
-                                  backgroundColor: '#fee2e2', 
-                                  color: '#dc2626', 
-                                  fontSize: '10px', 
-                                  fontWeight: '800', 
-                                  padding: '2px 6px', 
-                                  borderRadius: '4px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  border: '1px solid #fca5a5'
-                                }}>
-                                  ⚠️ CHÈQUE IMPAYÉ
-                                </span>
-                              )}
-                            </div>
+                          <td style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>
+                            <span style={{ color: statusColor, backgroundColor: statusBg, fontSize: '10px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', letterSpacing: '0.5px', display: 'inline-block' }}>
+                              {statusText}
+                            </span>
                           </td>
-                          <td style={{ padding: '20px 16px' }}>
+                          <td style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>
                             {(() => {
                               const unpaidCount = cheques.filter(c => 
                                 c.partner_name && 
@@ -1065,22 +1047,22 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                                   {unpaidCount} IMPAYÉ{unpaidCount > 1 ? 'S' : ''}
                                 </span>
                               ) : (
-                                <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: '600' }}>
-                                  Aucun
+                                <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>
+                                  -
                                 </span>
                               );
                             })()}
                           </td>
-                          <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
+                          <td style={{ padding: '12px 10px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '14px', whiteSpace: 'nowrap' }}>
                             {formatCurrency(total)}
                           </td>
-                          <td style={{ padding: '20px 16px', fontWeight: '800', color: '#10b981', fontSize: '15px' }}>
+                          <td style={{ padding: '12px 10px', fontWeight: '800', color: '#10b981', fontSize: '14px', whiteSpace: 'nowrap' }}>
                             {formatCurrency(regle)}
                           </td>
-                          <td style={{ padding: '20px 16px', fontWeight: '800', color: reste > 0 ? '#ef4444' : '#10b981', fontSize: '15px' }}>
+                          <td style={{ padding: '12px 10px', fontWeight: '800', color: reste > 0 ? '#ef4444' : '#10b981', fontSize: '14px', whiteSpace: 'nowrap' }}>
                             {formatCurrency(reste)}
                           </td>
-                          <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                          <td style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'inline-flex', gap: '12px', color: '#cbd5e1' }}>
                               {reste > 0 && !isReadOnly && (
                                 <button className="action-icon-btn" style={{ color: '#2563eb', cursor: 'pointer' }} onClick={(e) => handlePayClick(tx, e)} title="Régler / Enregistrer un règlement">
