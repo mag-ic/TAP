@@ -24,6 +24,14 @@ export default function Recouvrement() {
   const [editingCheque, setEditingCheque] = useState(null);
   const [editStatus, setEditStatus] = useState('');
 
+  // Verser Modal State
+  const [showVerserModal, setShowVerserModal] = useState(false);
+  const [verserCheque, setVerserCheque] = useState(null);
+  const [verserBank, setVerserBank] = useState('ATW');
+  const [customBank, setCustomBank] = useState('');
+  const [verserResponsable, setVerserResponsable] = useState('');
+  const [verserDate, setVerserDate] = useState(new Date().toISOString().split('T')[0]);
+
   // History Modal State
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyCheque, setHistoryCheque] = useState(null);
@@ -81,6 +89,50 @@ export default function Recouvrement() {
 
     setShowEditModal(false);
     setEditingCheque(null);
+  };
+
+  const handleSaveVersement = async (e) => {
+    e.preventDefault();
+    if (!verserCheque) return;
+
+    const finalBank = verserBank === 'AUTRE' ? customBank : verserBank;
+    const finalNumber = `Versé par: ${verserResponsable}`;
+    const updateData = {
+      bank: finalBank,
+      number: finalNumber,
+      status: 'recouvré',
+      due_date: verserDate
+    };
+
+    if (usingMockData) {
+      setCheques(prev => prev.map(c => c.id === verserCheque.id ? { ...c, ...updateData } : c));
+      const chq = mockCheques.find(c => c.id === verserCheque.id);
+      if (chq) {
+        chq.bank = finalBank;
+        chq.number = finalNumber;
+        chq.status = 'recouvré';
+        chq.due_date = verserDate;
+      }
+      alert("Versement enregistré avec succès (Mode Démo) !");
+    } else {
+      try {
+        const { error } = await supabase
+          .from('cheques')
+          .update(updateData)
+          .eq('id', verserCheque.id);
+
+        if (error) throw error;
+        alert("Versement enregistré avec succès !");
+        await fetchCheques(true);
+      } catch (err) {
+        alert("Erreur lors de l'enregistrement du versement : " + err.message);
+      }
+    }
+
+    setShowVerserModal(false);
+    setVerserCheque(null);
+    setVerserResponsable('');
+    setCustomBank('');
   };
 
   const handleDeleteCheque = async (chequeId, e) => {
@@ -895,14 +947,41 @@ export default function Recouvrement() {
                       <td style={{ padding: '20px 16px', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center' }}>
                           {!isReadOnly && (
-                            <button 
-                              className="action-icon-btn delete" 
-                              style={{ color: 'var(--danger)' }} 
-                              onClick={(e) => handleDeleteCheque(chq.id, e)} 
-                              title="Supprimer le règlement"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            <>
+                              <button 
+                                className="btn"
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  borderRadius: '6px',
+                                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                  color: 'var(--success)',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontFamily: 'inherit'
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setVerserCheque(chq);
+                                  setVerserDate(new Date().toISOString().split('T')[0]);
+                                  setShowVerserModal(true);
+                                }}
+                              >
+                                Verser
+                              </button>
+                              <button 
+                                className="action-icon-btn delete" 
+                                style={{ color: 'var(--danger)' }} 
+                                onClick={(e) => handleDeleteCheque(chq.id, e)} 
+                                title="Supprimer le règlement"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -954,6 +1033,90 @@ export default function Recouvrement() {
           </div>
         </div>
       )}
+
+      {/* Verser Modal */}
+      {showVerserModal && verserCheque && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ color: 'var(--text-primary)', width: '400px' }}>
+            <button className="modal-close" onClick={() => setShowVerserModal(false)}>
+              <X size={20} />
+            </button>
+            <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Verser en Banque</h3>
+            
+            <form onSubmit={handleSaveVersement}>
+              <div style={{ padding: '16px', backgroundColor: 'var(--bg-main)', borderRadius: '16px', marginBottom: '20px', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Détails du Versement</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>Tiers: {verserCheque.partner_name || 'N/A'}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700', marginTop: '4px' }}>Référence: {verserCheque.reference || 'N/A'}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700', marginTop: '4px' }}>Montant: {formatCurrency(verserCheque.amount)}</div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Banque de Dépôt</label>
+                <select 
+                  className="form-input" 
+                  value={verserBank}
+                  onChange={(e) => setVerserBank(e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="ATW">ATW (Attijariwafa Bank)</option>
+                  <option value="CDM">CDM (Crédit du Maroc)</option>
+                  <option value="BP">BP (Banque Populaire)</option>
+                  <option value="CIH">CIH (CIH Bank)</option>
+                  <option value="BMCE">BMCE (Bank of Africa)</option>
+                  <option value="AUTRE">Autre Banque...</option>
+                </select>
+              </div>
+
+              {verserBank === 'AUTRE' && (
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label className="form-label">Nom de la Banque</label>
+                  <input 
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Société Générale..."
+                    value={customBank}
+                    onChange={(e) => setCustomBank(e.target.value)}
+                    required
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              )}
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Responsable du Versement</label>
+                <input 
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Ali, Omar..."
+                  value={verserResponsable}
+                  onChange={(e) => setVerserResponsable(e.target.value)}
+                  required
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label className="form-label">Date de Versement</label>
+                <input 
+                  type="date"
+                  className="form-input"
+                  value={verserDate}
+                  onChange={(e) => setVerserDate(e.target.value)}
+                  required
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowVerserModal(false)}>Annuler</button>
+                <button type="submit" className="btn btn-blue-action">Valider le Versement</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* History Settlement Modal */}
       {showHistoryModal && historyCheque && (
         <div className="modal-overlay">
