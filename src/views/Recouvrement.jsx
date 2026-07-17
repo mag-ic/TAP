@@ -309,8 +309,8 @@ export default function Recouvrement() {
   // Filter Logic for Sales Cash Payments (Règlements Espèces Clients)
   const filteredCashPayments = cheques.filter(c => {
     if (c.bank !== 'Espèce' && c.bank !== 'Espèces') return false;
-    if (c.type !== 'IN') return false;
-    if (filterType === 'FOURNIS.') return false;
+    if (filterType === 'CLIENTS' && c.type !== 'IN') return false;
+    if (filterType === 'FOURNIS.' && c.type !== 'OUT') return false;
 
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
@@ -834,13 +834,13 @@ export default function Recouvrement() {
         )}
       </div>
 
-      {/* Card: Règlements Espèces (Ventes) */}
+      {/* Card: Règlements Espèces */}
       <div className="glass-card" style={{ padding: '24px', marginTop: '28px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
           <div style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-secondary)', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Clock size={16} />
           </div>
-          <h3 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Règlements Espèces (Ventes)</h3>
+          <h3 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Règlements Espèces</h3>
         </div>
 
         {filteredCashPayments.length === 0 ? (
@@ -852,44 +852,63 @@ export default function Recouvrement() {
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>CLIENT</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE FACTURE</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>PARTENAIRE / TIERS</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TYPE</th>
                   <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE RÈGLEMENT</th>
                   <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>MONTANT TTC</th>
                   <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredCashPayments.map((chq) => (
-                  <tr key={chq.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '20px 16px', fontWeight: '700', color: 'var(--text-primary)', fontSize: '14px' }}>
-                      {chq.partner_name || 'N/A'}
-                    </td>
-                    <td style={{ padding: '20px 16px', color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>
-                      {chq.reference || 'N/A'}
-                    </td>
-                    <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
-                      {chq.received_date || chq.due_date || 'N/A'}
-                    </td>
-                    <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
-                      {formatCurrency(chq.amount)}
-                    </td>
-                    <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center' }}>
-                        {!isReadOnly && (
-                          <button 
-                            className="action-icon-btn delete" 
-                            style={{ color: 'var(--danger)' }} 
-                            onClick={(e) => handleDeleteCheque(chq.id, e)} 
-                            title="Supprimer le règlement"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredCashPayments.map((chq) => {
+                  const isIncoming = chq.type === 'IN';
+                  return (
+                    <tr key={chq.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '20px 16px', fontWeight: '700', color: 'var(--text-primary)', fontSize: '14px' }}>
+                        {chq.partner_name || 'N/A'}
+                      </td>
+                      <td style={{ padding: '20px 16px', color: 'var(--text-primary)', fontWeight: '700', fontSize: '14px' }}>
+                        {chq.reference || 'N/A'}
+                      </td>
+                      <td style={{ padding: '20px 16px' }}>
+                        <span style={{
+                          backgroundColor: isIncoming ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)',
+                          color: isIncoming ? 'var(--success)' : '#f43f5e',
+                          fontSize: '10px',
+                          fontWeight: '800',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          display: 'inline-block'
+                        }}>
+                          {isIncoming ? 'Encaissement' : 'Décaissement'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '20px 16px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                        {chq.received_date || chq.due_date || 'N/A'}
+                      </td>
+                      <td style={{ padding: '20px 16px', fontWeight: '800', color: isIncoming ? 'var(--success)' : '#f43f5e', fontSize: '15px' }}>
+                        {isIncoming ? '+' : '-'}{formatCurrency(chq.amount)}
+                      </td>
+                      <td style={{ padding: '20px 16px', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center' }}>
+                          {!isReadOnly && (
+                            <button 
+                              className="action-icon-btn delete" 
+                              style={{ color: 'var(--danger)' }} 
+                              onClick={(e) => handleDeleteCheque(chq.id, e)} 
+                              title="Supprimer le règlement"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
