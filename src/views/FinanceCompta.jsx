@@ -707,6 +707,9 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                   <option value="Eau & Internet">Eau & Internet</option>
                   <option value="Salaires">Salaires</option>
                   <option value="Impôts & Taxes">Impôts & Taxes</option>
+                  <option value="Déplacement">Déplacement</option>
+                  <option value="Crédit Auto">Crédit Auto</option>
+                  <option value="Logistique">Logistique</option>
                   <option value="Autre">Autre</option>
                 </>
               ) : activeSubTab === 'factures' ? (
@@ -1106,6 +1109,9 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                       <option value="Eau & Internet">Eau & Internet</option>
                       <option value="Salaires">Salaires</option>
                       <option value="Impôts & Taxes">Impôts & Taxes</option>
+                      <option value="Déplacement">Déplacement</option>
+                      <option value="Crédit Auto">Crédit Auto</option>
+                      <option value="Logistique">Logistique</option>
                       <option value="Autre">Autre</option>
                     </select>
                   </div>
