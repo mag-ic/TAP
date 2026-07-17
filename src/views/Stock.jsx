@@ -303,6 +303,22 @@ export default function Stock() {
       const valB = b.price || 0;
       return sortOrder === 'asc' ? valA - valB : valB - valA;
     });
+  } else if (sortBy === 'name') {
+    filteredItems.sort((a, b) => {
+      const valA = (a.name || '').toLowerCase();
+      const valB = (b.name || '').toLowerCase();
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  } else if (sortBy === 'category') {
+    filteredItems.sort((a, b) => {
+      const valA = (a.category || '').toLowerCase();
+      const valB = (b.category || '').toLowerCase();
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
   }
 
   return (
@@ -373,6 +389,20 @@ export default function Stock() {
           onClick={() => handleSortToggle('price')}
         >
           Trier Prix {sortBy === 'price' && (sortOrder === 'asc' ? '↑' : '↓')}
+        </button>
+
+        <button
+          className={`sort-catalog-btn ${sortBy === 'name' ? 'active' : ''}`}
+          onClick={() => handleSortToggle('name')}
+        >
+          Trier Nom {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+        </button>
+
+        <button
+          className={`sort-catalog-btn ${sortBy === 'category' ? 'active' : ''}`}
+          onClick={() => handleSortToggle('category')}
+        >
+          Trier Catégorie {sortBy === 'category' && (sortOrder === 'asc' ? '↑' : '↓')}
         </button>
 
         <button 

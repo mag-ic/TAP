@@ -19,6 +19,7 @@ export default function Partners() {
   const [filterCity, setFilterCity] = useState('all');
   const [usingMockData, setUsingMockData] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
 
   // New States for Detail View
   const [selectedPartner, setSelectedPartner] = useState(null);
@@ -366,6 +367,55 @@ export default function Partners() {
     return matchesSearch && matchesType && matchesCity;
   });
 
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+    }
+    return '';
+  };
+
+  const sortedPartners = React.useMemo(() => {
+    let sortableItems = [...filteredPartners];
+    if (sortConfig.key) {
+      sortableItems.sort((a, b) => {
+        let valA, valB;
+
+        if (sortConfig.key === 'volume') {
+          valA = getPartnerMetrics(a).volume;
+          valB = getPartnerMetrics(b).volume;
+        } else if (sortConfig.key === 'encours') {
+          valA = getPartnerMetrics(a).encours;
+          valB = getPartnerMetrics(b).encours;
+        } else {
+          valA = a[sortConfig.key];
+          valB = b[sortConfig.key];
+        }
+
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+        }
+
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredPartners, sortConfig]);
+
   return (
     <div className="stock-page-container">
       {/* Catalog Header */}
@@ -497,15 +547,15 @@ export default function Partners() {
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>PARTENAIRE</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>VILLE</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>VOLUME D'AFFAIRES</th>
-                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>ENCOURS (RESTE)</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('name')}>PARTENAIRE{getSortIndicator('name')}</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('city')}>VILLE{getSortIndicator('city')}</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('volume')}>VOLUME D'AFFAIRES{getSortIndicator('volume')}</th>
+                  <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('encours')}>ENCOURS (RESTE){getSortIndicator('encours')}</th>
                   <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredPartners.map((partner) => {
+                {sortedPartners.map((partner) => {
                   const { volume, encours } = getPartnerMetrics(partner);
 
                   return (

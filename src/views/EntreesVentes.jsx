@@ -20,6 +20,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
   const [expandedRows, setExpandedRows] = useState({});
   const [usingMockData, setUsingMockData] = useState(false);
   const [selectedVenteIds, setSelectedVenteIds] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
 
   // Commission Modal States
   const [showCommissionModal, setShowCommissionModal] = useState(false);
@@ -38,6 +39,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
 
   useEffect(() => {
     setSelectedVenteIds([]);
+    setSortConfig({ key: 'date', direction: 'desc' });
   }, [activeSubTab, subSubTab]);
 
   // Date Filters for Sales History
@@ -849,6 +851,53 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
     return matchesSearch && matchesDate;
   });
 
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+    }
+    return '';
+  };
+
+  const sortedTxs = React.useMemo(() => {
+    let sortableItems = [...filteredTxs];
+    if (sortConfig.key) {
+      sortableItems.sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+
+        if (sortConfig.key === 'reference') {
+          valA = a.description || '';
+          valB = b.description || '';
+        } else if (sortConfig.key === 'partner_name') {
+          valA = a.partner_name || '';
+          valB = b.partner_name || '';
+        }
+
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+
+        if (sortConfig.key === 'amount') {
+          return sortConfig.direction === 'asc' ? Number(valA) - Number(valB) : Number(valB) - Number(valA);
+        }
+
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredTxs, sortConfig]);
+
   return (
     <div className="stock-page-container">
       {/* Header section matching images */}
@@ -1121,15 +1170,15 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                   <thead>
                     <tr>
                       <th style={{ width: '40px', borderBottom: '1px solid var(--border-color)' }}></th>
-                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE BC</th>
-                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE</th>
-                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>FOURNISSEUR</th>
-                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TOTAL TTC</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reference')}>RÉFÉRENCE BC{getSortIndicator('reference')}</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('date')}>DATE{getSortIndicator('date')}</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('partner_name')}>FOURNISSEUR{getSortIndicator('partner_name')}</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('amount')}>TOTAL TTC{getSortIndicator('amount')}</th>
                       <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTxs.map((tx) => {
+                    {sortedTxs.map((tx) => {
                       const itemsList = parseItems(tx.items);
                       const isExpanded = expandedRows[tx.id];
 
@@ -1339,16 +1388,16 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                 <table className="custom-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
-                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE AVANCE</th>
-                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE</th>
-                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>FOURNISSEUR</th>
-                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>MONTANT PAYÉ</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reference')}>RÉFÉRENCE AVANCE{getSortIndicator('reference')}</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('date')}>DATE{getSortIndicator('date')}</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('partner_name')}>FOURNISSEUR{getSortIndicator('partner_name')}</th>
+                      <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('amount')}>MONTANT PAYÉ{getSortIndicator('amount')}</th>
                       <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>MODE</th>
                       <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTxs.map((tx) => (
+                    {sortedTxs.map((tx) => (
                       <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                         <td style={{ padding: '20px 16px', fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
                           {tx.description}
@@ -1688,15 +1737,15 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                             />
                           </th>
                         )}
-                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>N° BL</th>
-                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE</th>
-                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>CLIENT</th>
-                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TOTAL TTC</th>
+                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reference')}>N° BL{getSortIndicator('reference')}</th>
+                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('date')}>DATE{getSortIndicator('date')}</th>
+                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('partner_name')}>CLIENT{getSortIndicator('partner_name')}</th>
+                        <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('amount')}>TOTAL TTC{getSortIndicator('amount')}</th>
                         <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTxs.map((tx) => {
+                      {sortedTxs.map((tx) => {
                         const itemsList = parseItems(tx.items);
                         const isExpanded = expandedRows[tx.id];
     

@@ -18,6 +18,7 @@ export default function Recouvrement() {
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'recouvré' | 'impayé' | 'en_attente'
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'due_date', direction: 'asc' });
 
   // Edit Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -386,6 +387,45 @@ export default function Recouvrement() {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+    }
+    return '';
+  };
+
+  const sortItems = (items) => {
+    let sortableItems = [...items];
+    if (sortConfig.key) {
+      sortableItems.sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+
+        if (sortConfig.key === 'amount') {
+          return sortConfig.direction === 'asc' ? Number(valA) - Number(valB) : Number(valB) - Number(valA);
+        }
+
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  };
+
   // Calculate dynamic stats
   const totalClients = cheques
     .filter(c => c.type === 'IN' && c.bank !== 'Espèce' && c.bank !== 'Espèces' && c.bank !== 'Virement')
@@ -598,17 +638,17 @@ export default function Recouvrement() {
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>N° / BANQUE</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>REÇU LE</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>ÉCHÉANCE</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>TIERS / RÉF.</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('number')}>N° / BANQUE{getSortIndicator('number')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('received_date')}>REÇU LE{getSortIndicator('received_date')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('due_date')}>ÉCHÉANCE{getSortIndicator('due_date')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('partner_name')}>TIERS / RÉF.{getSortIndicator('partner_name')}</th>
                   <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>STATUT</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>MONTANT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('amount')}>MONTANT{getSortIndicator('amount')}</th>
                   <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'right', padding: '16px 12px' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredCheques.map((chq) => {
+                {sortItems(filteredCheques).map((chq) => {
                   const isClient = chq.type === 'IN';
                   const isOverdue = chq.status === 'déposé' && new Date(chq.due_date) < new Date();
 
@@ -823,17 +863,17 @@ export default function Recouvrement() {
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TYPE</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>PARTENAIRE</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE FACTURE</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE RÈGLEMENT</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>MONTANT TTC</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>N° VIREMENT</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('type')}>TYPE{getSortIndicator('type')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('partner_name')}>PARTENAIRE{getSortIndicator('partner_name')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reference')}>RÉFÉRENCE FACTURE{getSortIndicator('reference')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('due_date')}>DATE RÈGLEMENT{getSortIndicator('due_date')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('amount')}>MONTANT TTC{getSortIndicator('amount')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('number')}>N° VIREMENT{getSortIndicator('number')}</th>
                   <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredVirements.map((chq) => (
+                {sortItems(filteredVirements).map((chq) => (
                   <tr key={chq.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <td style={{ padding: '20px 16px' }}>
                       <span style={{
@@ -904,16 +944,16 @@ export default function Recouvrement() {
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>PARTENAIRE / TIERS</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>RÉFÉRENCE</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>TYPE</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>DATE RÈGLEMENT</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px' }}>MONTANT TTC</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('partner_name')}>PARTENAIRE / TIERS{getSortIndicator('partner_name')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reference')}>RÉFÉRENCE{getSortIndicator('reference')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('type')}>TYPE{getSortIndicator('type')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('due_date')}>DATE RÈGLEMENT{getSortIndicator('due_date')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('amount')}>MONTANT TTC{getSortIndicator('amount')}</th>
                   <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-color)', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredCashPayments.map((chq) => {
+                {sortItems(filteredCashPayments).map((chq) => {
                   const isIncoming = chq.type === 'IN';
                   return (
                     <tr key={chq.id} style={{ borderBottom: '1px solid var(--border-color)' }}>

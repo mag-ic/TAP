@@ -12,6 +12,7 @@ export default function SAV() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [usingMockData, setUsingMockData] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' });
 
   // Form states
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
@@ -225,6 +226,45 @@ export default function SAV() {
     return `${formatted} DH`;
   };
 
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+    }
+    return '';
+  };
+
+  const sortedTickets = React.useMemo(() => {
+    let sortableItems = [...tickets];
+    if (sortConfig.key) {
+      sortableItems.sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+
+        if (sortConfig.key === 'cost') {
+          return sortConfig.direction === 'asc' ? Number(valA || 0) - Number(valB || 0) : Number(valB || 0) - Number(valA || 0);
+        }
+
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [tickets, sortConfig]);
+
   return (
     <div style={{ color: 'var(--text-primary)' }}>
       {/* Header matching image */}
@@ -355,16 +395,16 @@ export default function SAV() {
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>N° DOSSIER</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>CLIENT</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>PRODUIT</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>STATUT</th>
-                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px' }}>FRAIS</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('id')}>N° DOSSIER{getSortIndicator('id')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('client_name')}>CLIENT{getSortIndicator('client_name')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('product_name')}>PRODUIT{getSortIndicator('product_name')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('status')}>STATUT{getSortIndicator('status')}</th>
+                  <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'left', padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('cost')}>FRAIS{getSortIndicator('cost')}</th>
                   <th style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', textAlign: 'right', padding: '16px 12px' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {tickets.map((t) => {
+                {sortedTickets.map((t) => {
                   let statusBg = 'rgba(255, 255, 255, 0.08)';
                   let statusColor = 'var(--text-secondary)';
                   let statusLabel = 'CLÔTURÉ';

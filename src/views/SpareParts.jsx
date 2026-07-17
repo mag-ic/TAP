@@ -15,6 +15,8 @@ export default function SpareParts() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [usingMockData, setUsingMockData] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [sortBy, setSortBy] = useState(null);
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // Form states
   const [name, setName] = useState('');
@@ -260,6 +262,48 @@ export default function SpareParts() {
     return matchesSearch && matchesCategory;
   });
 
+  const handleSortToggle = (type) => {
+    if (sortBy === type) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(type);
+      setSortOrder('desc');
+    }
+  };
+
+  const sortedParts = React.useMemo(() => {
+    let sortableItems = [...filteredParts];
+    if (sortBy) {
+      sortableItems.sort((a, b) => {
+        let valA, valB;
+        if (sortBy === 'stock') {
+          valA = a.quantity || 0;
+          valB = b.quantity || 0;
+        } else if (sortBy === 'price') {
+          valA = a.unit_price || 0;
+          valB = b.unit_price || 0;
+        } else if (sortBy === 'name') {
+          valA = (a.name || '').toLowerCase();
+          valB = (b.name || '').toLowerCase();
+        } else if (sortBy === 'category') {
+          valA = (a.category || '').toLowerCase();
+          valB = (b.category || '').toLowerCase();
+        }
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
+        
+        valA = valA.toString();
+        valB = valB.toString();
+        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredParts, sortBy, sortOrder]);
+
   return (
     <div className="stock-page-container">
       {/* Header section matching image */}
@@ -318,6 +362,34 @@ export default function SpareParts() {
           ))}
         </select>
 
+        <button
+          className={`sort-catalog-btn ${sortBy === 'stock' ? 'active' : ''}`}
+          onClick={() => handleSortToggle('stock')}
+        >
+          Trier Stock {sortBy === 'stock' && (sortOrder === 'asc' ? '↑' : '↓')}
+        </button>
+
+        <button
+          className={`sort-catalog-btn ${sortBy === 'price' ? 'active' : ''}`}
+          onClick={() => handleSortToggle('price')}
+        >
+          Trier Prix {sortBy === 'price' && (sortOrder === 'asc' ? '↑' : '↓')}
+        </button>
+
+        <button
+          className={`sort-catalog-btn ${sortBy === 'name' ? 'active' : ''}`}
+          onClick={() => handleSortToggle('name')}
+        >
+          Trier Nom {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+        </button>
+
+        <button
+          className={`sort-catalog-btn ${sortBy === 'category' ? 'active' : ''}`}
+          onClick={() => handleSortToggle('category')}
+        >
+          Trier Parent {sortBy === 'category' && (sortOrder === 'asc' ? '↑' : '↓')}
+        </button>
+
         <button 
           className="btn btn-white" 
           onClick={fetchParts} 
@@ -342,7 +414,7 @@ export default function SpareParts() {
         </div>
       ) : (
         <div className="catalog-grid">
-          {filteredParts.map(part => {
+          {sortedParts.map(part => {
             const isOutOfStock = (part.quantity || 0) === 0;
             const isLowStock = part.quantity <= part.min_quantity;
             const displayPrice = (part.unit_price || 0) * 1.2;

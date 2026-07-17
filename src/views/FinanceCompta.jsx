@@ -26,10 +26,12 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
   const [endDate, setEndDate] = useState('');
   const [usingMockData, setUsingMockData] = useState(false);
   const [selectedTxIds, setSelectedTxIds] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
 
   useEffect(() => {
     setSelectedTxIds([]);
     setFilterTypeSelect('all');
+    setSortConfig({ key: 'date', direction: 'desc' });
   }, [activeSubTab]);
 
   // Edit Modal States
@@ -209,6 +211,67 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
     return matchesSearch && matchesType && matchesStatut && matchesDate;
   });
+
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+    }
+    return '';
+  };
+
+  const sortedTxs = React.useMemo(() => {
+    let sortableItems = [...filteredTxs];
+    if (sortConfig.key) {
+      sortableItems.sort((a, b) => {
+        let valA, valB;
+
+        if (sortConfig.key === 'reference') {
+          valA = a.description || '';
+          valB = b.description || '';
+        } else if (sortConfig.key === 'partner_name') {
+          valA = a.partner_name || '';
+          valB = b.partner_name || '';
+        } else if (sortConfig.key === 'type') {
+          valA = activeSubTab === 'charges' ? getChargeType(a) : (a.type || '');
+          valB = activeSubTab === 'charges' ? getChargeType(b) : (b.type || '');
+        } else if (sortConfig.key === 'amount') {
+          valA = getTxMetrics(a).total;
+          valB = getTxMetrics(b).total;
+        } else if (sortConfig.key === 'regle') {
+          valA = getTxMetrics(a).regle;
+          valB = getTxMetrics(b).regle;
+        } else if (sortConfig.key === 'reste') {
+          valA = getTxMetrics(a).reste;
+          valB = getTxMetrics(b).reste;
+        } else {
+          valA = a[sortConfig.key];
+          valB = b[sortConfig.key];
+        }
+
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+        }
+
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredTxs, sortConfig, activeSubTab]);
 
   const totalAmount = filteredTxs.reduce((sum, t) => sum + getTxMetrics(t).total, 0);
   const totalRegle = filteredTxs.reduce((sum, t) => sum + getTxMetrics(t).regle, 0);
@@ -869,19 +932,19 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                           />
                         </th>
                       )}
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE / LIBELLÉ</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TIERS</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>{activeSubTab === 'charges' ? 'TYPE DE CHARGE' : 'TYPE'}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reference')}>RÉFÉRENCE / LIBELLÉ{getSortIndicator('reference')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('date')}>DATE{getSortIndicator('date')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('partner_name')}>TIERS{getSortIndicator('partner_name')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('type')}>{activeSubTab === 'charges' ? 'TYPE DE CHARGE' : 'TYPE'}{getSortIndicator('type')}</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>STATUT</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT GLOBAL</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT RÉGLÉ</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT NON RÉGLÉ</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('amount')}>MONTANT GLOBAL{getSortIndicator('amount')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('regle')}>MONTANT RÉGLÉ{getSortIndicator('regle')}</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reste')}>MONTANT NON RÉGLÉ{getSortIndicator('reste')}</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTxs.map((tx) => {
+                    {sortedTxs.map((tx) => {
                       const { total, regle, reste } = getTxMetrics(tx);
                       const ref = getBCReference(tx.description);
                       const txCheques = cheques.filter(c => c.reference === ref || tx.description?.includes(c.reference));
