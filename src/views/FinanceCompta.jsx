@@ -251,6 +251,9 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
         } else if (sortConfig.key === 'reste') {
           valA = getTxMetrics(a).reste;
           valB = getTxMetrics(b).reste;
+        } else if (sortConfig.key === 'unpaid_count') {
+          valA = cheques.filter(c => c.partner_name && a.partner_name && c.partner_name.trim().toLowerCase() === a.partner_name.trim().toLowerCase() && c.status === 'impayé').length;
+          valB = cheques.filter(c => c.partner_name && b.partner_name && c.partner_name.trim().toLowerCase() === b.partner_name.trim().toLowerCase() && c.status === 'impayé').length;
         } else {
           valA = a[sortConfig.key];
           valB = b[sortConfig.key];
@@ -937,6 +940,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('partner_name')}>TIERS{getSortIndicator('partner_name')}</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('type')}>{activeSubTab === 'charges' ? 'TYPE DE CHARGE' : 'TYPE'}{getSortIndicator('type')}</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>STATUT</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('unpaid_count')}>IMPAYÉS{getSortIndicator('unpaid_count')}</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('amount')}>MONTANT GLOBAL{getSortIndicator('amount')}</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('regle')}>MONTANT RÉGLÉ{getSortIndicator('regle')}</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px', cursor: 'pointer', userSelect: 'none' }} onClick={() => requestSort('reste')}>MONTANT NON RÉGLÉ{getSortIndicator('reste')}</th>
@@ -1038,6 +1042,34 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                                 </span>
                               )}
                             </div>
+                          </td>
+                          <td style={{ padding: '20px 16px' }}>
+                            {(() => {
+                              const unpaidCount = cheques.filter(c => 
+                                c.partner_name && 
+                                tx.partner_name && 
+                                c.partner_name.trim().toLowerCase() === tx.partner_name.trim().toLowerCase() && 
+                                c.status === 'impayé'
+                              ).length;
+
+                              return unpaidCount > 0 ? (
+                                <span style={{ 
+                                  backgroundColor: 'rgba(239, 68, 68, 0.15)', 
+                                  color: '#f87171', 
+                                  fontSize: '11px', 
+                                  fontWeight: '800', 
+                                  padding: '4px 10px', 
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)'
+                                }}>
+                                  {unpaidCount} IMPAYÉ{unpaidCount > 1 ? 'S' : ''}
+                                </span>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: '600' }}>
+                                  Aucun
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td style={{ padding: '20px 16px', fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px' }}>
                             {formatCurrency(total)}
