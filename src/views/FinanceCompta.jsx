@@ -20,7 +20,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterResponsable, setFilterResponsable] = useState('all');
+  const [filterTypeSelect, setFilterTypeSelect] = useState('all');
   const [filterStatut, setFilterStatut] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -29,6 +29,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
   useEffect(() => {
     setSelectedTxIds([]);
+    setFilterTypeSelect('all');
   }, [activeSubTab]);
 
   // Edit Modal States
@@ -40,6 +41,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
   // Add Charge Modal States
   const [showAddChargeModal, setShowAddChargeModal] = useState(false);
+  const [chargeTypeInput, setChargeTypeInput] = useState('Autre');
   const [chargeDescription, setChargeDescription] = useState('');
   const [chargeAmount, setChargeAmount] = useState('');
   const [chargePartner, setChargePartner] = useState('');
@@ -101,6 +103,9 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
   const getDisplayReference = (description) => {
     if (!description) return 'INV-26-XXXX';
+    if (description.includes(' : ')) {
+      return description.split(' : ').slice(1).join(' : ');
+    }
     const blMatch = description.match(/(BL-\d+-\d+|BL\d+)/);
     if (blMatch) {
       return blMatch[0].replace('BL-', 'FACTURE-').replace('BL', 'FACTURE-');
@@ -110,6 +115,17 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
       return ref.replace('BL-', 'FACTURE-').replace('BL', 'FACTURE-');
     }
     return ref;
+  };
+
+  const getChargeType = (tx) => {
+    if (!tx || !tx.description) return 'Autre';
+    if (tx.description.includes(' : ')) {
+      return tx.description.split(' : ')[0];
+    }
+    if (tx.description.toLowerCase().includes('commission') || tx.id?.startsWith('tx-comm-')) {
+      return 'Commission';
+    }
+    return 'Autre';
   };
 
   const parseItems = (itemsStr) => {
@@ -160,9 +176,13 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
     const matchesSearch = t.description?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (t.partner_name && t.partner_name.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    let matchesResponsable = true;
-    if (filterResponsable !== 'all') {
-      matchesResponsable = filterResponsable === '---';
+    let matchesType = true;
+    if (filterTypeSelect !== 'all') {
+      if (activeSubTab === 'charges') {
+        matchesType = getChargeType(t) === filterTypeSelect;
+      } else {
+        matchesType = t.type === filterTypeSelect;
+      }
     }
 
     let matchesStatut = true;
@@ -187,7 +207,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
       matchesDate = matchesDate && t.date <= endDate;
     }
 
-    return matchesSearch && matchesResponsable && matchesStatut && matchesDate;
+    return matchesSearch && matchesType && matchesStatut && matchesDate;
   });
 
   const totalAmount = filteredTxs.reduce((sum, t) => sum + getTxMetrics(t).total, 0);
@@ -356,12 +376,13 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
     const txId = 'tx-' + Date.now();
     const finalAmount = parseFloat(chargeAmount);
+    const fullDescription = `${chargeTypeInput} : ${chargeDescription}`;
 
     const newTx = {
       id: txId,
       type: 'charge',
       amount: finalAmount,
-      description: chargeDescription,
+      description: fullDescription,
       partner_name: chargePartner || 'Divers',
       date: chargeDate,
       payment_method: chargePaymentMethod,
@@ -373,7 +394,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
       newCheque = {
         id: 'chq-' + Date.now(),
         type: 'OUT',
-        reference: chargeDescription,
+        reference: fullDescription,
         status: chargePaymentMethod === 'Chèque' ? 'en_attente' : 'recouvré',
         partner_name: chargePartner || 'Divers',
         due_date: chargeDate,
@@ -412,6 +433,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
 
     // Reset Form & Close
     setShowAddChargeModal(false);
+    setChargeTypeInput('Autre');
     setChargeDescription('');
     setChargeAmount('');
     setChargePartner('');
@@ -669,15 +691,37 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>RESPONSABLE</span>
+            <span style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8' }}>TYPE</span>
             <select
               className="select-category-catalog"
               style={{ height: '38px', borderRadius: '10px', fontSize: '12px', padding: '0 10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)', width: '100%', minWidth: 'unset' }}
-              value={filterResponsable}
-              onChange={(e) => setFilterResponsable(e.target.value)}
+              value={filterTypeSelect}
+              onChange={(e) => setFilterTypeSelect(e.target.value)}
             >
               <option value="all">TOUS</option>
-              <option value="---">---</option>
+              {activeSubTab === 'charges' ? (
+                <>
+                  <option value="Commission">Commission</option>
+                  <option value="Loyer">Loyer</option>
+                  <option value="Électricité">Électricité</option>
+                  <option value="Eau & Internet">Eau & Internet</option>
+                  <option value="Salaires">Salaires</option>
+                  <option value="Impôts & Taxes">Impôts & Taxes</option>
+                  <option value="Autre">Autre</option>
+                </>
+              ) : activeSubTab === 'factures' ? (
+                <>
+                  <option value="vente">Ventes</option>
+                  <option value="revenu">Revenus</option>
+                </>
+              ) : activeSubTab === 'achats' ? (
+                <option value="achat">Achats</option>
+              ) : (
+                <>
+                  <option value="depot">Dépôts</option>
+                  <option value="apport">Apports</option>
+                </>
+              )}
             </select>
           </div>
 
@@ -825,7 +869,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RÉFÉRENCE / LIBELLÉ</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>DATE</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>TIERS</th>
-                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>RESPONSABLE</th>
+                      <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>{activeSubTab === 'charges' ? 'TYPE DE CHARGE' : 'TYPE'}</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>STATUT</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT GLOBAL</th>
                       <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid #f1f5f9', padding: '16px' }}>MONTANT RÉGLÉ</th>
@@ -887,8 +931,24 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                               {tx.partner_name || 'N/A'}
                             </span>
                           </td>
-                          <td style={{ padding: '20px 16px', color: 'var(--text-muted)', fontWeight: '600' }}>
-                            ---
+                          <td style={{ padding: '20px 16px' }}>
+                            {activeSubTab === 'charges' ? (
+                              <span style={{ 
+                                backgroundColor: 'rgba(59, 130, 246, 0.12)', 
+                                color: '#60a5fa', 
+                                fontSize: '11px', 
+                                fontWeight: '700', 
+                                padding: '4px 10px', 
+                                borderRadius: '6px',
+                                textTransform: 'uppercase'
+                              }}>
+                                {getChargeType(tx)}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px', textTransform: 'uppercase' }}>
+                                {tx.type || 'N/A'}
+                              </span>
+                            )}
                           </td>
                           <td style={{ padding: '20px 16px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
@@ -1032,16 +1092,34 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
               <h3 className="top-bar-title" style={{ marginBottom: '20px' }}>Ajouter une Nouvelle Charge</h3>
               <form onSubmit={handleSaveCharge}>
                 
-                <div className="form-group" style={{ marginBottom: '16px' }}>
-                  <label className="form-label">Libellé / Description de la Charge</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Ex: Loyer Mensuel, Électricité, Commission..."
-                    value={chargeDescription}
-                    onChange={(e) => setChargeDescription(e.target.value)}
-                    required
-                  />
+                <div className="form-row" style={{ marginBottom: '16px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Type de Charge</label>
+                    <select 
+                      className="form-input" 
+                      value={chargeTypeInput} 
+                      onChange={(e) => setChargeTypeInput(e.target.value)}
+                    >
+                      <option value="Commission">Commission</option>
+                      <option value="Loyer">Loyer</option>
+                      <option value="Électricité">Électricité</option>
+                      <option value="Eau & Internet">Eau & Internet</option>
+                      <option value="Salaires">Salaires</option>
+                      <option value="Impôts & Taxes">Impôts & Taxes</option>
+                      <option value="Autre">Autre</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Description / Libellé</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Ex: Facture Juin, Loyer Depot, etc."
+                      value={chargeDescription}
+                      onChange={(e) => setChargeDescription(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="form-row" style={{ marginBottom: '16px' }}>
