@@ -514,14 +514,60 @@ export default function Stock() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Catégorie</label>
-                  <input
-                    type="text"
+                  <select
                     className="form-input"
                     required
-                    placeholder="ex: MURAL..."
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                  />
+                  >
+                    <option value="">Sélectionner une catégorie...</option>
+                    
+                    <optgroup label="CONGELATEUR">
+                      <option value="CONGELATEUR : COFFRE">COFFRE</option>
+                      <option value="CONGELATEUR : VERTICAL DEFROST">VERTICAL DEFROST</option>
+                    </optgroup>
+                    
+                    <optgroup label="CUISSON : POSABLE">
+                      <option value="CUISSON : POSABLE - CUISINIERE">CUISINIERE</option>
+                      <option value="CUISSON : POSABLE - FOUR POSABLE">FOUR POSABLE</option>
+                    </optgroup>
+                    
+                    <optgroup label="CUISSON : ENCASTRABLE">
+                      <option value="CUISSON : ENCASTRABLE - FOUR ENCASTRABLE">FOUR ENCASTRABLE</option>
+                      <option value="CUISSON : ENCASTRABLE - HOTTE CASQUETTE">HOTTE CASQUETTE</option>
+                      <option value="CUISSON : ENCASTRABLE - MICRO-ONDES">MICRO-ONDES</option>
+                      <option value="CUISSON : ENCASTRABLE - PLAQUE">PLAQUE</option>
+                    </optgroup>
+                    
+                    <optgroup label="LAVAGE AUTOMATIQUE">
+                      <option value="LAVAGE AUTOMATIQUE : FRONT LOAD">FRONT LOAD</option>
+                      <option value="LAVAGE AUTOMATIQUE : LAVANTE SECHANTE">LAVANTE SECHANTE</option>
+                      <option value="LAVAGE AUTOMATIQUE : TOP LOAD">TOP LOAD</option>
+                    </optgroup>
+                    
+                    <optgroup label="LAVAGE SEMI AUTOMATIC">
+                      <option value="LAVAGE SEMI AUTOMATIC : SINGLE TUB">SINGLE TUB</option>
+                      <option value="LAVAGE SEMI AUTOMATIC : TWIN TUB">TWIN TUB</option>
+                    </optgroup>
+                    
+                    <optgroup label="LAVE-VAISSELLE">
+                      <option value="LAVE-VAISSELLE : POSABLE">POSABLE</option>
+                    </optgroup>
+                    
+                    <optgroup label="REFRIGERATEUR">
+                      <option value="REFRIGERATEUR : COMBINE STATIQUE">COMBINE STATIQUE</option>
+                      <option value="REFRIGERATEUR : MINI BAR">MINI BAR</option>
+                      <option value="REFRIGERATEUR : SIDE BY SIDE">SIDE BY SIDE</option>
+                      <option value="REFRIGERATEUR : TABLE TOP">TABLE TOP</option>
+                      <option value="REFRIGERATEUR : TOP STATIQUE">TOP STATIQUE</option>
+                    </optgroup>
+                    
+                    <optgroup label="TRAITEMENT D'AIR">
+                      <option value="TRAITEMENT D'AIR : CLIMATISEUR MOBILE">CLIMATISEUR MOBILE</option>
+                      <option value="TRAITEMENT D'AIR : CLIMATISEUR MURAL INVERTER">CLIMATISEUR MURAL INVERTER</option>
+                      <option value="TRAITEMENT D'AIR : CLIMATISEUR MURAL ON OFF">CLIMATISEUR MURAL ON OFF</option>
+                    </optgroup>
+                  </select>
                 </div>
               </div>
 
