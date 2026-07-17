@@ -97,9 +97,9 @@ export default function Recouvrement() {
     if (!verserCheque) return;
 
     const finalBank = verserBank === 'AUTRE' ? customBank : verserBank;
-    const finalNumber = `Versé par: ${verserResponsable}`;
+    const finalNumber = `Versé sur ${finalBank} par ${verserResponsable}`;
     const updateData = {
-      bank: finalBank,
+      bank: verserCheque.bank || 'Espèce',
       number: finalNumber,
       status: 'recouvré',
       due_date: verserDate
@@ -109,7 +109,7 @@ export default function Recouvrement() {
       setCheques(prev => prev.map(c => c.id === verserCheque.id ? { ...c, ...updateData } : c));
       const chq = mockCheques.find(c => c.id === verserCheque.id);
       if (chq) {
-        chq.bank = finalBank;
+        chq.bank = verserCheque.bank || 'Espèce';
         chq.number = finalNumber;
         chq.status = 'recouvré';
         chq.due_date = verserDate;
@@ -985,34 +985,55 @@ export default function Recouvrement() {
                         {isIncoming ? '+' : '-'}{formatCurrency(chq.amount)}
                       </td>
                       <td style={{ padding: '20px 16px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center' }}>
+                        <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
                           {!isReadOnly && (
                             <>
-                              <button 
-                                className="btn"
-                                style={{
-                                  padding: '4px 10px',
-                                  fontSize: '11px',
-                                  fontWeight: '700',
-                                  borderRadius: '6px',
-                                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                                  color: 'var(--success)',
-                                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  fontFamily: 'inherit'
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setVerserCheque(chq);
-                                  setVerserDate(new Date().toISOString().split('T')[0]);
-                                  setShowVerserModal(true);
-                                }}
-                              >
-                                Verser
-                              </button>
+                              {chq.status === 'en_attente' ? (
+                                <button 
+                                  className="btn"
+                                  style={{
+                                    padding: '4px 10px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                    color: 'var(--success)',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontFamily: 'inherit'
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setVerserCheque(chq);
+                                    setVerserDate(new Date().toISOString().split('T')[0]);
+                                    setShowVerserModal(true);
+                                  }}
+                                >
+                                  Verser
+                                </button>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                  <span style={{ 
+                                    backgroundColor: 'rgba(59, 130, 246, 0.15)', 
+                                    color: '#60a5fa', 
+                                    fontSize: '10px', 
+                                    fontWeight: '800', 
+                                    padding: '2px 8px', 
+                                    borderRadius: '6px',
+                                    textTransform: 'uppercase',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                    display: 'inline-block'
+                                  }}>
+                                    VERSÉ
+                                  </span>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                                    {chq.number}
+                                  </span>
+                                </div>
+                              )}
                               <button 
                                 className="action-icon-btn delete" 
                                 style={{ color: 'var(--danger)' }} 
