@@ -401,10 +401,12 @@ export function printDocument({ type, reference, date, clientName, clientICE, cl
         </div>
         <script>
           window.onload = function() {
-            window.print();
             setTimeout(function() {
-              window.close();
-            }, 500);
+              window.print();
+            }, 300);
+          };
+          window.onafterprint = function() {
+            window.close();
           };
         </script>
       </body>
