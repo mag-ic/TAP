@@ -2153,6 +2153,18 @@ const initialCheques = [
 ];
 const initialTransactions = [
   {
+    "id": "tx-1784630653238",
+    "type": "vente",
+    "amount": 54600,
+    "description": "Facture N° INV-26-0059",
+    "partner_id": "ent-1777459702767",
+    "partner_name": "BRAHIM OULFA",
+    "date": "2026-04-29",
+    "status": "confirmé",
+    "payment_method": "Espèces",
+    "items": "[{\"productName\":\"SV7900WF SIVIR\",\"quantity\":12,\"priceTTC\":2200,\"unitPriceTTC\":2200,\"totalTTC\":26400},{\"productName\":\"SV8900WF SIVIR\",\"quantity\":12,\"priceTTC\":2350,\"unitPriceTTC\":2350,\"totalTTC\":28200}]"
+  },
+  {
     "id": "ste-1769683934691",
     "type": "achat",
     "amount": 100900.00000000001,
