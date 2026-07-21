@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockPartners, mockStock } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, Download, Upload, Eye, Pencil, FileText, Trash2, X, History, MapPin, RotateCcw, Box, Percent } from 'lucide-react';
+import { ArrowUpDown, RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Plus, Download, Upload, Eye, Pencil, FileText, FileCheck, Trash2, X, History, MapPin, RotateCcw, Box, Percent } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
 import { printDocument } from '../lib/printHelper';
 import { useIsReadOnly } from '../lib/UserContext';
@@ -1871,6 +1871,41 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                                    }} title="BL PDF">
                                     <FileText size={16} />
                                   </button>
+                                  <button className="action-icon-btn" style={{ color: '#10b981' }} onClick={(e) => {
+                                      e.stopPropagation();
+                                      const client = clients.find(c => c.name === tx.partner_name);
+                                      printDocument({
+                                        type: 'FACTURE',
+                                        reference: getBLReference(tx.description),
+                                        date: tx.date,
+                                        clientName: tx.partner_name || 'Client Inconnu',
+                                        clientICE: client?.ice || '',
+                                        clientIF: client?.if_id || '',
+                                        items: parseItems(tx.items)
+                                      });
+                                    }} title="Facture PDF (Global)">
+                                     <FileText size={16} />
+                                   </button>
+                                   {regle > 0 && (
+                                     <button className="action-icon-btn" style={{ color: '#059669' }} onClick={(e) => {
+                                        e.stopPropagation();
+                                        const client = clients.find(c => c.name === tx.partner_name);
+                                        printDocument({
+                                          type: 'FACTURE',
+                                          reference: getBLReference(tx.description),
+                                          date: tx.date,
+                                          clientName: tx.partner_name || 'Client Inconnu',
+                                          clientICE: client?.ice || '',
+                                          clientIF: client?.if_id || '',
+                                          items: parseItems(tx.items),
+                                          paidAmount: regle,
+                                          paymentMethod: `Règlement Vente (Réf: ${getBLReference(tx.description)})`,
+                                          isPaidAmountOnly: true
+                                        });
+                                      }} title="Facture PDF (Montant Réglé Uniquement)">
+                                       <FileCheck size={16} />
+                                     </button>
+                                   )}
                                 </div>
                               </td>
                             </tr>

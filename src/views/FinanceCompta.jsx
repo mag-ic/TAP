@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockTransactions, mockCheques, mockPartners } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Plus, Search, RefreshCw, Download, Pencil, Clock, FileText, X, RotateCcw, Calendar, User, Info, PieChart, BarChart3, BookOpen, Calculator, Upload, Trash2 } from 'lucide-react';
+import { Plus, Search, RefreshCw, Download, Pencil, Clock, FileText, FileCheck, X, RotateCcw, Calendar, User, Info, PieChart, BarChart3, BookOpen, Calculator, Upload, Trash2 } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
 import { printDocument } from '../lib/printHelper';
 import { useIsReadOnly } from '../lib/UserContext';
@@ -1097,10 +1097,34 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
                                     items: parseItems(tx.items)
                                   });
                                 }} 
-                                title="PDF Justificatif"
+                                title="PDF Justificatif (Montant Global)"
                               >
                                 <FileText size={16} />
                               </button>
+                              {regle > 0 && (
+                                <button 
+                                  className="action-icon-btn" 
+                                  style={{ color: '#10b981', cursor: 'pointer' }} 
+                                  onClick={() => {
+                                    const client = partners.find(p => p.name === tx.partner_name);
+                                    printDocument({
+                                      type: 'FACTURE',
+                                      reference: getDisplayReference(tx.description),
+                                      date: tx.date,
+                                      clientName: tx.partner_name || 'Client Inconnu',
+                                      clientICE: client?.ice || '',
+                                      clientIF: client?.if_id || '',
+                                      items: parseItems(tx.items),
+                                      paidAmount: regle,
+                                      paymentMethod: `Règlement (Réf: ${getDisplayReference(tx.description)})`,
+                                      isPaidAmountOnly: true
+                                    });
+                                  }} 
+                                  title="Facture PDF (Montant Réglé Uniquement)"
+                                >
+                                  <FileCheck size={16} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

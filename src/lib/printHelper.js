@@ -1,4 +1,4 @@
-export function printDocument({ type, reference, date, clientName, clientICE, clientIF, items }) {
+export function printDocument({ type, reference, date, clientName, clientICE, clientIF, items, paidAmount, paymentMethod, isPaidAmountOnly }) {
   const formattedDate = date || new Date().toISOString().split('T')[0];
   const docType = type || 'FACTURE'; // 'FACTURE' or 'BON DE LIVRAISON'
   const docRef = reference || 'INV-26-XXXX';
@@ -6,35 +6,6 @@ export function printDocument({ type, reference, date, clientName, clientICE, cl
   const partnerLabel = isPurchase ? 'FOURNISSEUR' : 'CLIENT';
 
   const parsedItems = items || [];
-  
-  // Calculate financials
-  let totalTTC = 0;
-  const itemsRows = parsedItems.map(item => {
-    const qty = Number(item.quantity || 0);
-    const priceTTC = Number(item.priceTTC || item.unitPriceTTC || (item.unitPriceHT * 1.2) || item.costPrice * 1.2 || 0);
-    const totalItemTTC = qty * priceTTC;
-    totalTTC += totalItemTTC;
-
-    return `
-      <tr>
-        <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: left; font-size: 13px; font-weight: 500;">
-          ${item.productName || item.designation || 'Article'}
-        </td>
-        <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: center; font-size: 13px; font-weight: 500; width: 80px;">
-          ${qty}
-        </td>
-        <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: right; font-size: 13px; font-weight: 500; width: 120px;">
-          ${formatNumber(priceTTC)}
-        </td>
-        <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: right; font-size: 13px; font-weight: 600; width: 140px;">
-          ${formatNumber(totalItemTTC)}
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  const totalHT = totalTTC / 1.2;
-  const totalTVA = totalTTC - totalHT;
 
   function formatNumber(num) {
     return Number(num).toLocaleString('fr-FR', {
@@ -42,6 +13,91 @@ export function printDocument({ type, reference, date, clientName, clientICE, cl
       maximumFractionDigits: 2
     });
   }
+
+  const isPaidOnly = (isPaidAmountOnly || paidAmount !== undefined) && paidAmount !== null && Number(paidAmount) > 0;
+  let totalTTC = 0;
+  let itemsRows = '';
+
+  if (isPaidOnly && parsedItems.length === 0) {
+    totalTTC = Number(paidAmount);
+    itemsRows = `
+      <tr>
+        <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: left; font-size: 13px; font-weight: 500;">
+          Règlement Facture / Acompte ${paymentMethod ? `- ${paymentMethod}` : ''} (Réf: ${docRef})
+        </td>
+        <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: center; font-size: 13px; font-weight: 500; width: 80px;">
+          1
+        </td>
+        <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: right; font-size: 13px; font-weight: 500; width: 120px;">
+          ${formatNumber(totalTTC)}
+        </td>
+        <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: right; font-size: 13px; font-weight: 600; width: 140px;">
+          ${formatNumber(totalTTC)}
+        </td>
+      </tr>
+    `;
+  } else if (isPaidOnly && parsedItems.length > 0) {
+    let origTotal = 0;
+    parsedItems.forEach(item => {
+      const qty = Number(item.quantity || 0);
+      const priceTTC = Number(item.priceTTC || item.unitPriceTTC || (item.unitPriceHT * 1.2) || item.costPrice * 1.2 || 0);
+      origTotal += qty * priceTTC;
+    });
+
+    const ratio = origTotal > 0 ? Number(paidAmount) / origTotal : 1;
+    totalTTC = Number(paidAmount);
+
+    itemsRows = parsedItems.map(item => {
+      const qty = Number(item.quantity || 0);
+      const origPriceTTC = Number(item.priceTTC || item.unitPriceTTC || (item.unitPriceHT * 1.2) || item.costPrice * 1.2 || 0);
+      const scaledPriceTTC = origPriceTTC * ratio;
+      const totalItemTTC = qty * scaledPriceTTC;
+
+      return `
+        <tr>
+          <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: left; font-size: 13px; font-weight: 500;">
+            ${item.productName || item.designation || 'Article'} (Montant réglé)
+          </td>
+          <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: center; font-size: 13px; font-weight: 500; width: 80px;">
+            ${qty}
+          </td>
+          <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: right; font-size: 13px; font-weight: 500; width: 120px;">
+            ${formatNumber(scaledPriceTTC)}
+          </td>
+          <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: right; font-size: 13px; font-weight: 600; width: 140px;">
+            ${formatNumber(totalItemTTC)}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } else {
+    itemsRows = parsedItems.map(item => {
+      const qty = Number(item.quantity || 0);
+      const priceTTC = Number(item.priceTTC || item.unitPriceTTC || (item.unitPriceHT * 1.2) || item.costPrice * 1.2 || 0);
+      const totalItemTTC = qty * priceTTC;
+      totalTTC += totalItemTTC;
+
+      return `
+        <tr>
+          <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: left; font-size: 13px; font-weight: 500;">
+            ${item.productName || item.designation || 'Article'}
+          </td>
+          <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: center; font-size: 13px; font-weight: 500; width: 80px;">
+            ${qty}
+          </td>
+          <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: right; font-size: 13px; font-weight: 500; width: 120px;">
+            ${formatNumber(priceTTC)}
+          </td>
+          <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: right; font-size: 13px; font-weight: 600; width: 140px;">
+            ${formatNumber(totalItemTTC)}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  const totalHT = totalTTC / 1.2;
+  const totalTVA = totalTTC - totalHT;
 
   // Generate HTML for print
   const printWindow = window.open('', '_blank');
@@ -275,6 +331,18 @@ export function printDocument({ type, reference, date, clientName, clientICE, cl
                 ${clientIF ? `IF: ${clientIF}` : ''}
               </div>
             </div>
+
+            ${isPaidOnly ? `
+            <div style="margin-top: 15px; padding: 10px 14px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; color: #166534; font-size: 12px; font-weight: 700; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span>✅ FACTURE ÉMISE POUR MONTANT RÉGLÉ</span>
+                ${paymentMethod ? `<div style="font-size: 11px; color: #15803d; margin-top: 2px; font-weight: 600;">Mode / Réf : ${paymentMethod}</div>` : ''}
+              </div>
+              <div style="font-size: 14px; font-weight: 800;">
+                ${formatNumber(totalTTC)} DH TTC
+              </div>
+            </div>
+            ` : ''}
 
             <!-- Items Table -->
             <table class="items-table">

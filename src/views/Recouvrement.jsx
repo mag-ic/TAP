@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mockCheques } from '../lib/mockData';
 import { formatCurrency } from '../lib/format';
-import { Search, Download, AlertCircle, ArrowDown, ArrowUp, Pencil, RotateCcw, X, Upload, Clock, Calendar, Trash2 } from 'lucide-react';
+import { Search, Download, AlertCircle, ArrowDown, ArrowUp, Pencil, RotateCcw, X, Upload, Clock, Calendar, Trash2, FileText } from 'lucide-react';
 import { parseCSV } from '../lib/csvHelper';
+import { printDocument } from '../lib/printHelper';
 import { useIsReadOnly } from '../lib/UserContext';
 
 export default function Recouvrement() {
@@ -809,6 +810,25 @@ export default function Recouvrement() {
                           >
                             <Clock size={15} />
                           </button>
+                          <button 
+                            className="action-icon-btn" 
+                            style={{ color: '#3b82f6' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              printDocument({
+                                type: 'FACTURE',
+                                reference: chq.reference || `CHQ-${chq.number || chq.id}`,
+                                date: chq.due_date || chq.received_date,
+                                clientName: chq.partner_name || 'Client Inconnu',
+                                paidAmount: chq.amount,
+                                paymentMethod: `Chèque N° ${chq.number || 'N/A'}${chq.bank ? ` (${chq.bank})` : ''}`,
+                                isPaidAmountOnly: true
+                              });
+                            }} 
+                            title="Imprimer Facture PDF (Montant Réglé)"
+                          >
+                            <FileText size={15} />
+                          </button>
                           {!isReadOnly && (
                             <>
                               <button 
@@ -906,6 +926,25 @@ export default function Recouvrement() {
                     </td>
                     <td style={{ padding: '20px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '14px', alignItems: 'center' }}>
+                        <button 
+                          className="action-icon-btn" 
+                          style={{ color: '#3b82f6' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            printDocument({
+                              type: 'FACTURE',
+                              reference: chq.reference || `VIR-${chq.number || chq.id}`,
+                              date: chq.due_date || chq.received_date,
+                              clientName: chq.partner_name || 'Client Inconnu',
+                              paidAmount: chq.amount,
+                              paymentMethod: `Virement N° ${chq.number || 'N/A'}`,
+                              isPaidAmountOnly: true
+                            });
+                          }} 
+                          title="Imprimer Facture PDF (Montant Réglé)"
+                        >
+                          <FileText size={16} />
+                        </button>
                         {!isReadOnly && (
                           <button 
                             className="action-icon-btn delete" 
@@ -1034,6 +1073,25 @@ export default function Recouvrement() {
                                   </span>
                                 </div>
                               )}
+                              <button 
+                                className="action-icon-btn" 
+                                style={{ color: '#3b82f6' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  printDocument({
+                                    type: 'FACTURE',
+                                    reference: chq.reference || `ESP-${chq.id}`,
+                                    date: chq.due_date || chq.received_date,
+                                    clientName: chq.partner_name || 'Client Inconnu',
+                                    paidAmount: chq.amount,
+                                    paymentMethod: 'Règlement Espèces',
+                                    isPaidAmountOnly: true
+                                  });
+                                }} 
+                                title="Imprimer Facture PDF (Montant Réglé)"
+                              >
+                                <FileText size={16} />
+                              </button>
                               <button 
                                 className="action-icon-btn delete" 
                                 style={{ color: 'var(--danger)' }} 
