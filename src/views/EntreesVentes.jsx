@@ -1886,7 +1886,7 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                                     }} title="Facture PDF (Global)">
                                      <FileText size={16} />
                                    </button>
-                                   {regle > 0 && (
+                                   {Number(tx.amount || 0) > 0 && (
                                      <button className="action-icon-btn" style={{ color: '#059669' }} onClick={(e) => {
                                         e.stopPropagation();
                                         const client = clients.find(c => c.name === tx.partner_name);
@@ -1898,8 +1898,8 @@ export default function EntreesVentes({ initialTab = 'entrees' }) {
                                           clientICE: client?.ice || '',
                                           clientIF: client?.if_id || '',
                                           items: parseItems(tx.items),
-                                          paidAmount: regle,
-                                          paymentMethod: `Règlement Vente (Réf: ${getBLReference(tx.description)})`,
+                                          paidAmount: tx.amount,
+                                          paymentMethod: `Règlement Vente (${tx.payment_method || 'Espèces'})`,
                                           isPaidAmountOnly: true
                                         });
                                       }} title="Facture PDF (Montant Réglé Uniquement)">
