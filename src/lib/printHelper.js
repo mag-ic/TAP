@@ -117,6 +117,11 @@ export function printDocument({ type, reference, date, clientName, clientICE, cl
             size: A4;
             margin: 1.5cm;
           }
+          @media print {
+            .no-print {
+              display: none !important;
+            }
+          }
           body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             color: #1e293b;
@@ -299,6 +304,19 @@ export function printDocument({ type, reference, date, clientName, clientICE, cl
         </style>
       </head>
       <body>
+        <div class="no-print" style="background: #0f172a; color: white; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; font-family: sans-serif; position: sticky; top: 0; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-bottom: 2px solid #2563eb;">
+          <div style="font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            📄 Previsualisation du Document : <span style="color: #60a5fa;">${docType} (${docRef})</span>
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <button onclick="window.print()" style="background-color: #2563eb; color: white; border: none; padding: 8px 18px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              🖨️ Enregistrer en PDF / Imprimer
+            </button>
+            <button onclick="window.close()" style="background-color: #475569; color: white; border: none; padding: 8px 18px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer;">
+              ❌ Fermer cette fenêtre
+            </button>
+          </div>
+        </div>
         <div class="container">
           <div>
             <!-- Header Section -->
@@ -404,9 +422,6 @@ export function printDocument({ type, reference, date, clientName, clientICE, cl
             setTimeout(function() {
               window.print();
             }, 300);
-          };
-          window.onafterprint = function() {
-            window.close();
           };
         </script>
       </body>
