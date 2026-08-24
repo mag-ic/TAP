@@ -164,7 +164,7 @@ export default function FinanceCompta({ initialMode = 'finance' }) {
   // --- 1. FINANCE TAB LOGIC ---
   const displayedTxs = transactions.filter(t => {
     if (activeSubTab === 'factures') {
-      return t.type === 'vente' || t.type === 'revenu';
+      return t.type === 'vente' || t.type === 'revenu' || t.type === 'bl';
     } else if (activeSubTab === 'achats') {
       return t.type === 'achat';
     } else if (activeSubTab === 'charges') {

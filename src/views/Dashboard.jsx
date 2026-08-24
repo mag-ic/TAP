@@ -49,11 +49,11 @@ export default function Dashboard({ setActiveTab }) {
 
         // Calculate metrics from database
         const salesTotal = txs
-          .filter(t => t.type === 'vente' && t.status === 'confirmé')
+          .filter(t => (t.type === 'vente' || t.type === 'bl') && t.status === 'confirmé')
           .reduce((sum, t) => sum + Number(t.amount), 0);
 
         const incomeTotal = txs
-          .filter(t => (t.type === 'vente' || t.type === 'revenu') && t.status === 'confirmé')
+          .filter(t => (t.type === 'vente' || t.type === 'revenu' || t.type === 'bl') && t.status === 'confirmé')
           .reduce((sum, t) => sum + Number(t.amount), 0);
         
         const expenseTotal = txs
@@ -76,11 +76,11 @@ export default function Dashboard({ setActiveTab }) {
         
         // Calculate totals from mock data
         const salesTotal = mockTransactions
-          .filter(t => t.type === 'vente' && t.status === 'confirmé')
+          .filter(t => (t.type === 'vente' || t.type === 'bl') && t.status === 'confirmé')
           .reduce((sum, t) => sum + Number(t.amount), 0);
 
         const incomeTotal = mockTransactions
-          .filter(t => (t.type === 'vente' || t.type === 'revenu') && t.status === 'confirmé')
+          .filter(t => (t.type === 'vente' || t.type === 'revenu' || t.type === 'bl') && t.status === 'confirmé')
           .reduce((sum, t) => sum + Number(t.amount), 0);
         
         const expenseTotal = mockTransactions
